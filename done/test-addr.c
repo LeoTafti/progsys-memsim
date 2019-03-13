@@ -203,7 +203,7 @@ START_TEST(virtual_addr_t_to_uint64_t_test)
         in |= (uint64_t) generate_Nbit_random(48);
         
 		(void)  init_virt_addr64(&vaddr, in);
-        out = virt_addr_t_to_uint64(&vaddr);
+        out = virt_addr_t_to_uint64_t(&vaddr);
 
         ck_assert_int_eq(out, in);
     }
@@ -222,8 +222,8 @@ Suite* addr_test_suite()
     tcase_add_test(tc2, init_virt_addr64_test);
     Add_Case(s, tc3, "tests for virt_addr_t_to_virtual_page_number");
     tcase_add_test(tc3, virt_addr_t_to_virtual_page_number_test);
-    Add_Case(s, tc4, "tests for virtual_addr_t_to_unint64_t");
-    tcase_add_test(tc4, virtual_addr_t_to_unint64_t_test);
+    Add_Case(s, tc4, "tests for virtual_addr_t_to_uint64_t");
+    tcase_add_test(tc4, virtual_addr_t_to_uint64_t_test);
 
     return s;
 }
