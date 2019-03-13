@@ -43,27 +43,29 @@ uint64_t generate_Nbit_random(int n)
     return val;
 }
 
-    //tests for virtual_addr_t_to_unint64_t
-    //tests for init_phy_addr
-
-// ------------------------------------------------------------
-// First basic tests, provided to students
-
+// ===================== TC1 ===================== 
 START_TEST(init_virt_addr_test)
 {
-    
     virt_addr_t vaddr;
     zero_init_var(vaddr);
+    uint16_t pgd_entry   = 0;
+	uint16_t pud_entry   = 0;
+	uint16_t pmd_entry   = 0;
+	uint16_t pte_entry   = 0;
+	uint16_t page_offset = 0;
 
     srand(time(NULL) ^ getpid() ^ pthread_self());
 #pragma GCC diagnostic pop
 
+	// check ERR_NONE on correct input
+	ck_assert_err_none( init_virt_addr(&vaddr, pgd_entry, pud_entry, pmd_entry, pte_entry, page_offset));
+
     REPEAT(100) {
-        uint16_t pgd_entry   = (uint16_t) generate_Nbit_random(PGD_ENTRY);
-        uint16_t pud_entry   = (uint16_t) generate_Nbit_random(PUD_ENTRY);
-        uint16_t pmd_entry   = (uint16_t) generate_Nbit_random(PMD_ENTRY);
-        uint16_t pte_entry   = (uint16_t) generate_Nbit_random(PTE_ENTRY);
-        uint16_t page_offset = (uint16_t) generate_Nbit_random(PAGE_OFFSET);
+        pgd_entry   = (uint16_t) generate_Nbit_random(PGD_ENTRY);
+        pud_entry   = (uint16_t) generate_Nbit_random(PUD_ENTRY);
+        pmd_entry   = (uint16_t) generate_Nbit_random(PMD_ENTRY);
+        pte_entry   = (uint16_t) generate_Nbit_random(PTE_ENTRY);
+        page_offset = (uint16_t) generate_Nbit_random(PAGE_OFFSET);
 
         (void)init_virt_addr(&vaddr, pgd_entry, pud_entry, pmd_entry, pte_entry, page_offset);
 
@@ -78,21 +80,26 @@ START_TEST(init_virt_addr_test)
 }
 END_TEST
 
-
+// ===================== TC2 ===================== 
 START_TEST(init_virt_addr64_test)
 {
     virt_addr_t vaddr;
     zero_init_var(vaddr);
+    uint64_t vaddr64 = 0;
 
     srand(time(NULL) ^ getpid() ^ pthread_self());
 #pragma GCC diagnostic pop
 
+	// check ERR_NONE on correct input
+	ck_assert_err_none(init_virt_addr64(&vaddr,vaddr64));
+
     // check reserved bits are zero
-    uint64_t vaddr64 = 0xFFFFFFFFFFFFFFFF; //all ones
+    vaddr64 = 0xFFFFFFFFFFFFFFFF; //all ones
     init_virt_addr64(&vaddr, vaddr64);
     ck_assert_int_eq(vaddr.reserved, 0);
+    
     // check all zeros
-    vaddr64 = 0x0;
+    vaddr64 = 0;
     init_virt_addr64(&vaddr, vaddr64);
     ck_assert_int_eq(vaddr.reserved, 0);
 	ck_assert_int_eq(vaddr.pgd_entry, 0);
@@ -144,21 +151,26 @@ START_TEST(init_virt_addr64_test)
 }
 END_TEST
 
+// ===================== TC3 ===================== 
 START_TEST(virt_addr_t_to_virtual_page_number_test)
 {
     
     virt_addr_t vaddr;
     virt_addr_t vpgnb;
     zero_init_var(vaddr);
-    zero_init_var(vpgnb);
-    
+    zero_init_var(vpgnb);    
 
     srand(time(NULL) ^ getpid() ^ pthread_self());
 #pragma GCC diagnostic pop
 
     // check null caught
 	ck_assert_bad_param(virt_addr_t_to_virtual_page_number(NULL));
+	
+	// check ERR_NONE for correct input
+	(void) init_virt_addr64(&vaddr, (uint64_t) 0xC0FEE); // some arbitrary value
+	ck_assert_err_none(virt_addr_t_to_virtual_page_number(&vaddr));
 
+	// randomized check for correctness
     REPEAT(100) {
         uint16_t pgd_entry   = (uint16_t) generate_Nbit_random(PGD_ENTRY);
         uint16_t pud_entry   = (uint16_t) generate_Nbit_random(PUD_ENTRY);
@@ -182,7 +194,7 @@ START_TEST(virt_addr_t_to_virtual_page_number_test)
 END_TEST
 
 
-//tests for virtual_addr_t_to_uint64_t
+// ===================== TC4 ===================== 
 START_TEST(virtual_addr_t_to_uint64_t_test)
 {
     virt_addr_t vaddr;
@@ -195,7 +207,10 @@ START_TEST(virtual_addr_t_to_uint64_t_test)
 #pragma GCC diagnostic pop
 
     // check null caught
-	ck_assert_bad_param(virt_addr_t_uint64_t(NULL));
+	ck_assert_bad_param(virt_addr_t_to_uint64_t(NULL));
+	
+	// check ERR_NONE on correct input
+	ck_assert_err_none(virt_addr_t_to_uint64_t(&vaddr);
 
 	// check gen from 64 and translate to 64 is identity
     REPEAT(100) {
@@ -210,6 +225,66 @@ START_TEST(virtual_addr_t_to_uint64_t_test)
 }
 END_TEST
 
+// ===================== TC4 ===================== 
+START_TEST(init_phy_addr_test)
+{
+    phy_addr_t pa;
+    phy_addr_t pb;
+    zero_init_var(pa); // TODO what does this actually do?
+    zero_init_var(pb);
+    uint32_t page_begin = 0;
+    uint16_t page_offset = 0;
+    
+
+    srand(time(NULL) ^ getpid() ^ pthread_self());
+#pragma GCC diagnostic pop
+
+    // check null caught
+	ck_assert_bad_param(init_phy_addr(NULL, page_begin, page_offset));
+	ck_assert_bad_param(init_phy_addr(&pa, NULL, page_offset));
+	ck_assert_bad_param(init_phy_addr(&pa, page_begin, NULL));
+
+	// check ERR_NONE on correct input
+	ck_assert_err_none(init_phy_addr(&pa, page_begin, page_offset);
+
+	// check PAGE-OFFSET-lsbs are not significant
+	init_phy_addr(&pa, page_begin, page_offset);
+	page_begin = 0xFFF; // PAGE-OFFSET lsbs set to 1
+	init_phy_addr(&pb, page_begin, page_offset);
+	ck_assert_int_eq(pa.phy_page_num, pb.phy_page_num);
+	
+	// check msb of page_offset are not significant
+	page_offset = 0; 
+	init_phy_addr(&pa, page_begin, page_offset);
+	page_offset = 0xF000; //only bits not in PAGE-OFFSET-lsbs set to 1
+	init_phy_addr(&pb, page_begin, page_offset);
+	ck_assert_int_eq(pa.page_offset, pb.page_offset);
+	
+	// randomized  check for correctness based on independance of:
+	// page_begin's lsb
+	// page_offset's msb
+    uint16_t noise4;
+    uint16_t noise12;
+    REPEAT(100) {
+		page_begin  = (uint64_t) generate_Nbit_random(32);
+        page_offset = (uint64_t) generate_Nbit_random(16);
+        
+        noise4 = (uint16_t) generate_Nbit_random(4);
+        noise12 = (uint16_t) generate_Nbit_random(12);
+        
+		(void) init_phy_addr(&pa, page_begin, page_offset);
+		
+		// add noise to verify it doesnt impact
+		page_offset |= noise4 << 12;
+		page_begin |= noise12;
+		(void)init_phy_addr(&pb, page_begin, page_offset);
+		
+		ck_assert_int_eq(pa.phy_page_num, pb.phy_page_num);
+		ck_assert_int_eq(pa.page_offset, pb.page_offset);
+    }
+    
+}
+END_TEST
 
 // ======================================================================
 Suite* addr_test_suite()
@@ -218,12 +293,18 @@ Suite* addr_test_suite()
 
     Add_Case(s, tc1, "tests for init_virt_addr");
     tcase_add_test(tc1, init_virt_addr_test);
+    
     Add_Case(s, tc2, "tests for init_virt_addr64");
     tcase_add_test(tc2, init_virt_addr64_test);
+    
     Add_Case(s, tc3, "tests for virt_addr_t_to_virtual_page_number");
     tcase_add_test(tc3, virt_addr_t_to_virtual_page_number_test);
+    
     Add_Case(s, tc4, "tests for virtual_addr_t_to_uint64_t");
     tcase_add_test(tc4, virtual_addr_t_to_uint64_t_test);
+    
+    Add_Case(s, tc5, "tests for init_phy_addr");
+    tcase_add_test(tc5, init_phy_addr_test);
 
     return s;
 }
