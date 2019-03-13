@@ -12,6 +12,9 @@
 
 #include <stdio.h> // FILE
 
+//Salut
+//coucou c'est moi
+
 //=========================================================================
 /**
  * @brief Initialize virt_addr_t structure. Reserved bits are zeroed.
