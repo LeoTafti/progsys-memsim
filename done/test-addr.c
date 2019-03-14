@@ -16,8 +16,6 @@
 #include <pthread.h>
 
 // ------------------------------------------------------------
-#include <stdio.h> // for puts(). to be removed when no longer needed.
-
 #include <check.h>
 #include <inttypes.h>
 #include <assert.h>
@@ -195,7 +193,7 @@ START_TEST(virtual_addr_t_to_uint64_t_test)
 #pragma GCC diagnostic pop
 
     // check null caught
-	ck_assert_bad_param(virt_addr_t_uint64_t(NULL));
+	ck_assert_bad_param(virt_addr_t_to_uint64_t(NULL));
 
 	// check gen from 64 and translate to 64 is identity
     REPEAT(100) {
