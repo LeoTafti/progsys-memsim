@@ -16,8 +16,6 @@
 #include <pthread.h>
 
 // ------------------------------------------------------------
-#include <stdio.h> // for puts(). to be removed when no longer needed.
-
 #include <check.h>
 #include <inttypes.h>
 #include <assert.h>
