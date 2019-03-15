@@ -20,7 +20,14 @@ LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 
 all:: test-addr
 
-test-addr: addr.h addr_mng.h error.h test-addr.c tests.h
+# ================ basis ==================
+addr_mng.o: 
+error.o :
+
+test-addr: addr_mng.o tests.h
+
+test: test-addr
+	./test-addr
 
 
 

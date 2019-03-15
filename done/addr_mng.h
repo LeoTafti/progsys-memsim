@@ -22,7 +22,7 @@
  * @param pte_entry the value of the PT  offset of the virtual address
  * @param page_offest the value of the physical memory page offset of the virtual address
  * @return error code
- */
+ */ 
 int init_virt_addr(virt_addr_t * vaddr,
                    uint16_t pgd_entry,
                    uint16_t pud_entry, uint16_t pmd_entry,
