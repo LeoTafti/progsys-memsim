@@ -231,7 +231,7 @@ START_TEST(init_phy_addr_test)
     zero_init_var(pa); // TODO what does this actually do?
     zero_init_var(pb);
     uint32_t page_begin = 0;
-    uint16_t page_offset = 0;
+    uint32_t page_offset = 0;
     
 
     srand(time(NULL) ^ getpid() ^ pthread_self());
@@ -256,6 +256,10 @@ START_TEST(init_phy_addr_test)
 	init_phy_addr(&pb, page_begin, page_offset);
 	ck_assert_int_eq(pa.page_offset, pb.page_offset);
 	
+	
+	/* Entry too big entry for offset is treated as an error
+	 * these tests are not relevant, they result in a BAD_PARAM
+	 * 
 	// randomized  check for correctness based on independance of:
 	// page_begin's lsb
 	// page_offset's msb
@@ -270,14 +274,18 @@ START_TEST(init_phy_addr_test)
         
 		(void) init_phy_addr(&pa, page_begin, page_offset);
 		
-		// add noise to verify it doesnt vary
+		// add noise
+		// page begin 12lsb should not impact
+		// page offset msbs should not impact
 		page_begin |= noise12;
 		page_offset |= noise4 << 12;
-		(void)init_phy_addr(&pb, page_begin, page_offset);
+		
+		ck_assert_bad_param(init_phy_addr(&pb, page_begin, page_offset));
 		
 		ck_assert_int_eq(pa.phy_page_num, pb.phy_page_num);
 		ck_assert_int_eq(pa.page_offset, pb.page_offset);
     }
+    */
     
 }
 END_TEST
@@ -289,19 +297,19 @@ Suite* addr_test_suite()
 	
     Suite* s = suite_create("Virtual and Physical Address Tests");
 
-    Add_Case(s, tc1, "\n");
+    Add_Case(s, tc1, "VIRT ADDR");
     tcase_add_test(tc1, init_virt_addr_test);
     
-    Add_Case(s, tc2, "\n");
+    Add_Case(s, tc2, "VIRT ADDR");
     tcase_add_test(tc2, init_virt_addr64_test);
     
-    Add_Case(s, tc3, "\n");
+    Add_Case(s, tc3, "VIRT ADDR TO PAGE_NUM");
     tcase_add_test(tc3, virt_addr_t_to_virtual_page_number_test);
     
-    Add_Case(s, tc4, "\n");
+    Add_Case(s, tc4, "VIRT ADDR TO INT64");
     tcase_add_test(tc4, virtual_addr_t_to_uint64_t_test);
     
-    Add_Case(s, tc5, "\n");
+    Add_Case(s, tc5, "PHY ADDR");
     tcase_add_test(tc5, init_phy_addr_test);
     
 

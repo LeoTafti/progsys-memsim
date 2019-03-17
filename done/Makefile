@@ -21,15 +21,18 @@ LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 all:: 
 
 # ==== BASIS ===========================================================
-addr_mng.o: 
 error.o :
+addr_mng.o: 
+
+commands.o: error.o addr_mng.o
 
 test-addr: addr_mng.o tests.h
+test-commands:
 
 # ==== EXE =============================================================
 
 test: test-addr
-	./test-addr
+	./test-commands
 
 
 
