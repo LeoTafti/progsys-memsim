@@ -22,13 +22,19 @@
 //		 (standardize code written in Week 4)
 
 int program_init(program_t* program) {
-	M_REQUIRE_NON_NULL(program);   
+	M_REQUIRE_NON_NULL(program);
+	
+	//TODO : I don't think it really helps to comment "// init xxx"
 
 	// init listing
 	for (int i = 0; i < MAX_COMMANDS; i++) {
-		// TODO how to modify pointer value?
-		program->listing[i] = 0;
+		// TODO how to modify pointer value? Léo : I think this does the job (from Lecture 2 on structures)
+		(void)memset(&program->listing[i], 0, sizeof(program->listing[i]));
 	}
+	
+	//TODO : But doesn't this do the same in a more compact way ?
+	//(void)memset(program->listing, 0, sizeof(program->listing));
+	
 	//init nb_lines
 	program->nb_lines = 0;
 	//init allocated
@@ -87,18 +93,19 @@ int program_print(FILE* output, const program_t* program) {
 	// Léo : shouldn't we create a function which takes 1 command and formats it ?
 	// this function would then be *a lot* clearer (only print, format commands + print)
 	
-	command_t* c;
+	command_t c;	// TODO : was there a reason form making this a pointer ?
+					//We don't need to modify the value pointed, just print it ?
 	for(int i = 0; i < program->nb_lines; i++) {
 		c = program->listing[i];
 		
-		uint64_t addr = virt_addr_t_to_uint64_t(c->vaddr);
+		uint64_t addr = virt_addr_t_to_uint64_t(&c.vaddr);
 		
-		if(c->order == READ) {
-			if (c->type == INSTRUCTION) {
+		if(c.order == READ) {
+			if (c.type == INSTRUCTION) {
 				fprintf(output, "R I @0x%016" PRIX64, addr);
 			}
 			else {
-				if (c->data_size == sizeof(word_t)) {
+				if (c.data_size == sizeof(word_t)) {
 					fprintf(output, "R DW @0x%016" PRIX64, addr);
 				}
 				else {
@@ -107,11 +114,11 @@ int program_print(FILE* output, const program_t* program) {
 			}
 		}
 		else {
-			if (c->data_size == sizeof(word_t)) {
-				fprintf(output, "R DW 0x%08" PRIX32 " @0x%016" PRIX64, c->write_data, addr);
+			if (c.data_size == sizeof(word_t)) {
+				fprintf(output, "R DW 0x%08" PRIX32 " @0x%016" PRIX64, c.write_data, addr);
 			}
 			else {
-				fprintf(output, "R DB 0x%02" PRIX32 " @0x%016" PRIX64, c->write_data, addr);
+				fprintf(output, "R DB 0x%02" PRIX32 " @0x%016" PRIX64, c.write_data, addr);
 			}
 			
 		}

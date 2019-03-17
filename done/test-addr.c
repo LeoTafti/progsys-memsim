@@ -141,7 +141,7 @@ START_TEST(init_virt_addr64_test)
 	ck_assert_bad_param(init_virt_addr64(NULL, vaddr64));
 	
 	// check not 64
-	// TODO should this error?
+	// TODO should this error? Léo : I don't think so, it makes no real sense to do that (?)
 	//uint16_t not64 = 0x0;
 	//ck_assert_bad_param(init_virt_addr64(&vaddr, not64));
 	
@@ -228,7 +228,7 @@ START_TEST(init_phy_addr_test)
 {
     phy_addr_t pa;
     phy_addr_t pb;
-    zero_init_var(pa); // TODO what does this actually do?
+    zero_init_var(pa); // TODO what does this actually do? Léo : See util.h, it basically does what the name says it does
     zero_init_var(pb);
     uint32_t page_begin = 0;
     uint32_t page_offset = 0;
