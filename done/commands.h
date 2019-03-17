@@ -12,7 +12,7 @@
 #include <stdint.h> // for uint32_t
 
 #include "mem_access.h" // for mem_access_t
-#include "addr.h" // for virt_addr_t
+#include "addr.h" // for virt_addr_t, word_t
  
 #define MAX_COMMANDS 100
  
@@ -24,7 +24,7 @@ typedef enum {
 typedef struct {
 	command_word_t order;
 	mem_access_t type;
-	size_t data_size;
+	size_t data_size; //always in bytes
 	word_t write_data;
 	virt_addr_t vaddr;
 } command_t;

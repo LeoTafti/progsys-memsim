@@ -18,6 +18,9 @@
 #define BYTE_MAX_VALUE 0xFF
 #define WORD_MAX_VALUE 0xFFFFFFFF // TODO is unsigned?
 
+//TODO : general remark – do we keep the layout with ugly //---------------// between functions ?
+//		 (standardize code written in Week 4)
+
 int program_init(program_t* program) {
 	M_REQUIRE_NON_NULL(program);   
 
@@ -71,7 +74,7 @@ int program_add_command(program_t* program, const command_t* command) {
 int program_shrink(program_t* program) {
 	M_REQUIRE_NON_NULL(program);   
 
-	// nothing to do here yet
+	// TODO : complete (Week 6)
 	
 	return ERR_NONE;
 }
@@ -80,7 +83,9 @@ int program_print(FILE* output, const program_t* program) {
 	M_REQUIRE_NON_NULL(output);
 	M_REQUIRE_NON_NULL(program);
 	
-	//TODO beurk mais je sais pas a quel point le formattage est stricte...
+	//TODO beurk mais je sais pas a quel point le formattage est strict...
+	// Léo : shouldn't we create a function which takes 1 command and formats it ?
+	// this function would then be *a lot* clearer (only print, format commands + print)
 	
 	command_t* c;
 	for(int i = 0; i < program->nb_lines; i++) {
