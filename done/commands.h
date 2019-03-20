@@ -88,3 +88,38 @@ int program_print(FILE* output, const program_t* program);
  * @return ERR_NONE if ok, appropriate error code otherwise.
  */
 int program_read(const char* filename, program_t* program);
+
+/**
+ * @brief Read one line of command (a string) from given input file
+ * @param input the input file (list of commands)
+ * @param str (modified) the command read
+ * @param str_len length of str char array
+ * @return ERR_NONE if ok, appropriate error code otherwise (ERR_IO)
+ */
+int read_command(FILE* input, char* str, size_t str_len);
+
+/**
+ * @brief Extracts a command_t out of the given Read command string
+ * @param c (modified) the extracted command_t
+ * @param command_str the string representation of the command
+ * @return ERR_NONE if ok, appropriate error code otherwise
+ */
+int extract_read_command(command_t* c, char* command_str);
+
+/**
+ * @brief Extracts a command_t out of the given Write command string
+ * @param c (modified) the extracted command_t
+ * @param command_str the string representation of the command
+ * @return ERR_NONE if ok, appropriate error code otherwise
+ */
+int extract_write_command(command_t* c, char* command_str);
+
+/**
+ * @brief Strips one word from str, starting from index (incl.)
+ * 		Possibly drops (leading) spaces
+ * @param str string to read one word from
+ * @param read (modified) word read, guarantees '\0' as last char
+ * @param index (modified) start index, modified to index of char directly following word read
+ * @return ERR_NONE if ok, appropriate error code otherwise
+ */
+int next_word(char* str, char* read, size_t read_len, int* index);
