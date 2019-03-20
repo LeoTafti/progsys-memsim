@@ -7,7 +7,7 @@
  */
 
 #include <stdio.h>
-#include <inttypes.h> // TODO
+#include <inttypes.h> // PRIX macro
 
 #include "commands.h"
 #include "addr_mng.h"
@@ -18,26 +18,11 @@
 #define BYTE_MAX_VALUE 0xFF
 #define WORD_MAX_VALUE 0xFFFFFFFF // TODO is unsigned?
 
-//TODO : general remark – do we keep the layout with ugly //---------------// between functions ?
-//		 (standardize code written in Week 4)
-
 int program_init(program_t* program) {
 	M_REQUIRE_NON_NULL(program);
-	
-	//TODO : I don't think it really helps to comment "// init xxx"
 
-	// init listing
-	for (int i = 0; i < MAX_COMMANDS; i++) {
-		// TODO how to modify pointer value? Léo : I think this does the job (from Lecture 2 on structures)
-		(void)memset(&program->listing[i], 0, sizeof(program->listing[i]));
-	}
-	
-	//TODO : But doesn't this do the same in a more compact way ?
-	//(void)memset(program->listing, 0, sizeof(program->listing));
-	
-	//init nb_lines
+	(void)memset(program->listing, 0, sizeof(program->listing));
 	program->nb_lines = 0;
-	//init allocated
 	program->allocated = sizeof(program->listing);
 	
 	return ERR_NONE;
