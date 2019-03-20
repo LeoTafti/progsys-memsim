@@ -96,23 +96,7 @@ int program_read(const char* filename, program_t* program);
  * @param str_len length of str char array
  * @return ERR_NONE if ok, appropriate error code otherwise (ERR_IO)
  */
-int read_command(FILE* input, char* str, size_t str_len);
-
-/**
- * @brief Extracts a command_t out of the given Read command string
- * @param c (modified) the extracted command_t
- * @param command_str the string representation of the command
- * @return ERR_NONE if ok, appropriate error code otherwise
- */
-int extract_read_command(command_t* c, char* command_str);
-
-/**
- * @brief Extracts a command_t out of the given Write command string
- * @param c (modified) the extracted command_t
- * @param command_str the string representation of the command
- * @return ERR_NONE if ok, appropriate error code otherwise
- */
-int extract_write_command(command_t* c, char* command_str);
+int read_command_line(FILE* input, char* str, size_t str_len);
 
 /**
  * @brief Strips one word from str, starting from index (incl.)
@@ -122,4 +106,4 @@ int extract_write_command(command_t* c, char* command_str);
  * @param index (modified) start index, modified to index of char directly following word read
  * @return ERR_NONE if ok, appropriate error code otherwise
  */
-int next_word(char* str, char* read, size_t read_len, int* index);
+int next_word(char* str, char* read, size_t read_len, unsigned int* index);

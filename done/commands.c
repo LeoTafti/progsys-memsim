@@ -138,20 +138,45 @@ int program_read(const char* filename, program_t* program){
 	
 	do{
 		//Read one line of command
-		M_EXIT_IF_ERR(read_command(input, command_str, MAX_COMMAND_LENGTH+1), "Error reading one line of command from input file");
+		M_EXIT_IF_ERR(read_command_line(input, command_str, MAX_COMMAND_LENGTH+1), "Error reading one line of command from input file");
 		
 		//Make it a command_t
 		command_t c;
 		(void)memset(&c, 0, sizeof(c));
 		
-		if(command_str[0] == 'R'){
-			M_EXIT_IF_ERR(extract_read_command(&c, command_str), "Error extracting read command");
-		}else if(command_str[0] == 'W'){
-			M_EXIT_IF_ERR(extract_write_command(&c, command_str), "Error extracting write command");
-		}else{
-			M_EXIT(ERR_BAD_PARAMETER, "Command was neither a Read ('R') nor a Write ('W')");
+		
+		unsigned int index = 0;
+		char word_read[MAX_COMMAND_WORD_LENGTH+1]; //+1 accounts for '\0' in last position
+		
+		M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
+		M_EXIT_IF_ERR(parse_order(c, word_read), "Error trying to parse order");
+		
+		M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
+		M_EXIT_IF_ERR(parse_type(c, word_read), "Error trying to parse type");
+		
+		if(c.type == DATA){
+			M_EXIT_IF_ERR(parse_size(c, word_read), "Error trying to parse size");
 		}
 		
+		if(c.order == WRITE){
+			M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
+			M_EXIT_IF_ERR(parse_data(c, word_read), "Error trying to parse data");
+		}
+		
+		M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
+		M_EXIT_IF_ERR(parse_address(c, word_read), "Error trying to parse address");
+		
+		
+		//TODO : Write parse_xx
+		//NOTE : In parse_xx, always check given word has some expected length 
+		//
+		//size_t word_len = strlen(word_read);
+		//M_EXIT_IF(word_len != someValue, ERR_BAD_PARAMETER, "Bad instruction format : some nice explaining message");
+		
+		
+		//Note : the above only parses the input. It doesn't check in any way that the input makes sense
+		//Only that it has a somewhat "legal" structure (to be parseable)
+		//These checks should be donne in program_add_command
 		M_EXIT_IF_ERR(program_add_command(program, &c), "Error adding command to program");
 		
 	} while(!feof(input) && !ferror(input));
@@ -161,6 +186,9 @@ int program_read(const char* filename, program_t* program){
 	return ERR_NONE;
 }
 
+//TODO : should we verify args in auxilary functions ? (see MOODLE forum)
+//TODO : Make every argument we can const ?
+
 /**
  * @brief Read one line of command (a string) from given input file
  * @param input the input file (list of commands)
@@ -168,9 +196,7 @@ int program_read(const char* filename, program_t* program){
  * @param str_len length of str char array
  * @return ERR_NONE if ok, appropriate error code otherwise (ERR_IO)
  */
-int read_command(FILE* input, char* str, size_t str_len){
-	//TODO : should we verify args in auxilary functions ? (see MOODLE forum)
-	//TODO : Make every argument I can a const ?
+int read_command_line(FILE* input, char* str, size_t str_len){
 	fgets(str, str_len, input);
 	
 	int len_read = strlen(str) - 1;
@@ -185,11 +211,48 @@ int read_command(FILE* input, char* str, size_t str_len){
 }
 
 /**
- * @brief Extracts a command_t out of the given Read command string
- * @param c (modified) the extracted command_t
- * @param command_str the string representation of the command
+ * @brief Strips one word from str, starting from index (incl.)
+ * 		Possibly drops (leading) spaces
+ * @param str string to read one word from
+ * @param read (modified) word read
+ * @param index (modified) start index, modified to index of char directly following word read
  * @return ERR_NONE if ok, appropriate error code otherwise
  */
+int next_word(char* str, char* read, size_t read_len, unsigned int* index){
+	//TODO : TEST THIS FUNCTION on empty string, or just one char string, or just one "space" char string, etc
+	// if this works, the above probably works too (and inversely !)
+	int str_len = strlen(str);
+	
+	//"Drop" leading spaces, if any
+	while(*index < str_len && isspace(str[*index])){
+		(*index)++;
+	}
+	
+	M_EXIT_IF(*index == str_len, ERR_BAD_PARAMETER, "Reached end of string, but expected more (presumably wrong command format)");
+	
+	//Read until next space
+	size_t read_nb = 0;
+	char nextChar;
+	do{
+		M_EXIT_IF(read_nb == read_len-1, ERR_BAD_PARAMETER, "Given read char array is too small to hold next word of instruction");
+		
+		nextChar = str[*index];
+		read[read_nb] = nextChar;
+		read_nb++;
+		(*index)++;
+	}while(*index < str_len && isspace(nextChar));
+	
+	read[read_nb] = '\0';
+	
+	return ERR_NONE;
+}
+
+
+//TODO : remove
+// I leave what's below only to serve as inspiration to write the parse_xx functions
+// and as a reminder to always catch unexpected values. parse_xx functions should not be nested though,
+//so should be a lot simpler
+/*
 int extract_read_command(command_t* c, char* command_str){
 	c->order = READ;
 	unsigned int index = 1; //put it right after the first char, as reading it with next_word would have done
@@ -199,17 +262,6 @@ int extract_read_command(command_t* c, char* command_str){
 	
 	size_t word_len = strlen(word_read);
 
-	//TODO : think – could next_word return an empty word ? Should I check here
-	//TODO : Refactor all of this
-	
-	//Define functions to the be able to do (almost exactly)
-	//parse_type(...)
-	//if(type == DATA) parse_size(...)
-	//if(size == BYTE) parse_byte(...) else if(size == WORD) parse_word(...)
-	//
-	//parse_address(...);
-	
-	//Otherwise this is super ugly
 	
 	if(type_char == 'I'){
 		c->type = INSTRUCTION;
@@ -236,50 +288,4 @@ int extract_read_command(command_t* c, char* command_str){
 	
 	return ERR_NONE;
 }
-
-/**
- * @brief Extracts a command_t out of the given Write command string
- * @param c (modified) the extracted command_t
- * @param command_str the string representation of the command
- * @return ERR_NONE if ok, appropriate error code otherwise
- */
-int extract_write_command(command_t* c, char* command_str){
-	//TODO : implement
-	return ERR_NONE;
-}
-
-/**
- * @brief Strips one word from str, starting from index (incl.)
- * 		Possibly drops (leading) spaces
- * @param str string to read one word from
- * @param read (modified) word read
- * @param index (modified) start index, modified to index of char directly following word read
- * @return ERR_NONE if ok, appropriate error code otherwise
- */
-int next_word(char* str, char* read, size_t read_len, int* index){
-	//TODO : TEST THIS FUNCTION on empty string, or just one char string, or just one "space" char string, etc
-	// if this works, the above probably works too (and inversely !)
-	int str_len = strlen(str);
-	
-	//"Drop" leading spaces, if any
-	while(*index < str_len && isspace(str[*index])){
-		(*index)++;
-	}
-	
-	M_EXIT_IF(*index == str_len, ERR_BAD_PARAMETER, "Reached end of string, but expected more (presumably wrong command format)");
-	
-	//Read until next space
-	size_t read_nb = 0;
-	char nextChar;
-	do{
-		M_EXIT_IF(read_nb == read_len, ERR_BAD_PARAMETER, "Given read char array is too small to hold next word of instruction");
-		
-		nextChar = str[*index];
-		read[read_nb] = nextChar;
-		read_nb++;
-		(*index)++;
-	}while(*index < str_len && isspace(nextChar));
-	
-	return ERR_NONE;
-}
-
+*/
