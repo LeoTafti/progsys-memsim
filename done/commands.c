@@ -7,6 +7,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h> 	// strtol()
 #include <inttypes.h> 	// PRIX macro
 #include <string.h>		// strlen()
 #include <ctype.h> 		// isspace()
@@ -81,23 +82,23 @@ int program_shrink(program_t* program) {
 	
 	return ERR_NONE;
 }
-// TODO DOC
-void print_order( FILE* const o , command_t const * c ) {
+
+static void print_order( FILE* const o , command_t const * c ) {
 	 if(c->order == READ) fprintf(o, "R ");
 	 else fprintf(o, "W ");
 }
-void print_type_size( FILE* const o , command_t const * c ){ 
+static void print_type_size( FILE* const o , command_t const * c ){ 
 	if(c->type == INSTRUCTION) fprintf(o, "I  "); // I and two white spaces
 	else { 
 		if (c->data_size == sizeof(word_t)) fprintf(o, "DW ");
 		else fprintf(o, "DB "); 
 	}
 }
-void print_data( FILE* const o , command_t const * c ) {
+static void print_data( FILE* const o , command_t const * c ) {
 	if(c->order == WRITE) fprintf(o, "0x%08" PRIX32 " ", c->write_data);
 	else fprintf(o, "           "); // 11 whites spaces
 }
-void print_addr( FILE* const o , command_t const * c ) {
+static void print_addr( FILE* const o , command_t const * c ) {
 	fprintf(o, "@0x%016" PRIX64, virt_addr_t_to_uint64_t( &(c->vaddr)) );
 }
 
@@ -110,6 +111,7 @@ int program_print(FILE* output, const program_t* program) {
 	for(int i = 0; i < program->nb_lines; i++) {
 		c = program->listing[i];
 		
+		//old code just in case
 		/*uint64_t addr = virt_addr_t_to_uint64_t(&c.vaddr);
 		
 		if(c.order == READ) {
@@ -141,8 +143,9 @@ int program_print(FILE* output, const program_t* program) {
  * @return ERR_NONE if ok, appropriate error code otherwise.
  */
  
+
 #define MAX_COMMAND_LENGTH 36
-#define MAX_COMMAND_WORD_LENGTH 19 //"@0x" prefix, followed by 16 HEX digits = 19 characters
+#define MAX_COMMAND_WORD_LENGTH 19 // ADDRESS_CHARS
 
 int program_read(const char* filename, program_t* program){
 	M_REQUIRE_NON_NULL(filename);
@@ -165,25 +168,27 @@ int program_read(const char* filename, program_t* program){
 		
 		
 		unsigned int index = 0;
-		char word_read[MAX_COMMAND_WORD_LENGTH+1]; //+1 accounts for '\0' in last position
+		char word_read[1+MAX_COMMAND_WORD_LENGTH]; //+1 accounts for '\0' in last position 
 		
-		M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
-		M_EXIT_IF_ERR(parse_order(c, word_read), "Error trying to parse order");
+		// NOTE : need to pass c as a pointer to change its values.
 		
-		M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
-		M_EXIT_IF_ERR(parse_type(c, word_read), "Error trying to parse type");
+		M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
+		M_EXIT_IF_ERR(parse_order(&c, word_read), "Error trying to parse order");
+		
+		M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
+		M_EXIT_IF_ERR(parse_type(&c, word_read), "Error trying to parse type");
 		
 		if(c.type == DATA){
-			M_EXIT_IF_ERR(parse_size(c, word_read), "Error trying to parse size");
+			M_EXIT_IF_ERR(parse_size(&c, word_read), "Error trying to parse size");
 		}
 		
 		if(c.order == WRITE){
-			M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
-			M_EXIT_IF_ERR(parse_data(c, word_read), "Error trying to parse data");
+			M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
+			M_EXIT_IF_ERR(parse_data(&c, word_read), "Error trying to parse data");
 		}
 		
-		M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
-		M_EXIT_IF_ERR(parse_address(c, word_read), "Error trying to parse address");
+		M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
+		M_EXIT_IF_ERR(parse_address(&c, word_read), "Error trying to parse address");
 		
 		
 		//TODO : Write parse_xx
@@ -205,8 +210,8 @@ int program_read(const char* filename, program_t* program){
 	return ERR_NONE;
 }
 
-//TODO : should we verify args in auxilary functions ? (see MOODLE forum)
 //TODO : Make every argument we can const ?
+ 
 
 /**
  * @brief Read one line of command (a string) from given input file
@@ -215,7 +220,7 @@ int program_read(const char* filename, program_t* program){
  * @param str_len length of str char array
  * @return ERR_NONE if ok, appropriate error code otherwise (ERR_IO)
  */
-int read_command_line(FILE* input, char* str, size_t str_len){
+static int read_command_line(FILE* input, char* str, size_t str_len){
 	fgets(str, str_len, input);
 	
 	int len_read = strlen(str) - 1;
@@ -229,15 +234,15 @@ int read_command_line(FILE* input, char* str, size_t str_len){
 	return ERR_NONE;
 }
 
+
 /**
- * @brief Strips one word from str, starting from index (incl.)
- * 		Possibly drops (leading) spaces
+ * @brief Strips one word from str, starting from index (incl.) Drops (leading) spaces.
  * @param str string to read one word from
  * @param read (modified) word read
  * @param index (modified) start index, modified to index of char directly following word read
  * @return ERR_NONE if ok, appropriate error code otherwise
  */
-int next_word(char* str, char* read, size_t read_len, unsigned int* index){
+static int next_word(char* str, char* read, size_t read_len, unsigned int* index){
 	//TODO : TEST THIS FUNCTION on empty string, or just one char string, or just one "space" char string, etc
 	// if this works, the above probably works too (and inversely !)
 	int str_len = strlen(str);
@@ -247,24 +252,128 @@ int next_word(char* str, char* read, size_t read_len, unsigned int* index){
 		(*index)++;
 	}
 	
+	// reads only in cases it needs to. Empty fields are not read -> error
 	M_EXIT_IF(*index == str_len, ERR_BAD_PARAMETER, "Reached end of string, but expected more (presumably wrong command format)");
 	
-	//Read until next space
+	// read until next space
 	size_t read_nb = 0;
 	char nextChar;
 	do{
-		M_EXIT_IF(read_nb == read_len-1, ERR_BAD_PARAMETER, "Given read char array is too small to hold next word of instruction");
+		M_EXIT_IF(read_nb == read_len-1, ERR_BAD_PARAMETER, "Given 'read' char array is too small to hold next word of instruction");
 		
-		nextChar = str[*index];
+		nextChar = str[*index]; // TODO on a single line?
 		read[read_nb] = nextChar;
 		read_nb++;
 		(*index)++;
-	}while(*index < str_len && isspace(nextChar));
+	
+	} while(*index < str_len && isspace(nextChar));
 	
 	read[read_nb] = '\0';
 	
 	return ERR_NONE;
 }
+
+
+#define ORDER_CHARS 1 // I or W
+#define TYPE_CHARS 2 // I or DB or DW
+#define DATA_CHARS 10 // 0x + 8 hex
+#define ADDRESS_CHARS 19 // @0x + 16 hex
+
+static int parse_order(command_t * c, char* word) {
+	size_t word_len = strlen(word);
+	M_EXIT_IF(word_len != ORDER_CHARS, ERR_BAD_PARAMETER, "Bad instruction format : command order should only be 1 character");
+	
+	if(*word == 'R') {
+		c->order = READ;
+		return ERR_NONE;
+	}
+	else if (*word == 'W') {
+		c->order = WRITE;
+		return ERR_NONE;
+	}
+	
+	// TODO compiler doesnt like returning macros
+	M_EXIT(ERR_BAD_PARAMETER, "Bad instruction format: first command word is not a valid order entry.");
+	
+	return 1;
+
+}
+
+static int parse_type(command_t * c, char* word) {	
+	size_t word_len = strlen(word);
+	M_EXIT_IF(word_len > TYPE_CHARS, ERR_BAD_PARAMETER, "Bad instruction format : command type and size should only be at most 2 characters");
+	
+	// NOTE : my eyes hurt!
+	
+	if (word_len == 1 && *word == 'I') { //also checks I has no size
+		c->type = INSTRUCTION;
+		// TODO set data_size to 0 or leave empty/random?
+		return ERR_NONE;
+	}
+	
+	else if (*word == 'D') {
+		c->type = DATA;
+		word++;
+		
+		if(*word == 'B') {
+			c->data_size = sizeof(byte_t);
+			return ERR_NONE;
+		}
+		else if(*word == 'W') {
+			c->data_size = sizeof(word_t);
+			return ERR_NONE;
+		} 
+		else {
+			M_EXIT(ERR_BAD_PARAMETER, "Bad instruction format: command type D should be followed by either B or W");	
+		}
+	}
+	
+	// TODO compiler doesnt like returning macros
+	M_EXIT(ERR_BAD_PARAMETER, "Bad instruction format: command type should be I or D");		
+	return 1;		
+	
+}
+
+/** unsigned long int strtoul(const char *str, char **endptr, int base);
+* TODO ** ? pointer of pointer?
+* may lift its own errors
+* discards first unrecognized chars
+* deduces radix based on '0x'
+* cf http://pubs.opengroup.org/onlinepubs/7908799/xsh/strtol.html
+*/
+		
+static int parse_data(command_t * c, char* word) {
+	size_t word_len = strlen(word);
+	M_EXIT_IF(word_len > DATA_CHARS, ERR_BAD_PARAMETER, "Bad instruction format : command data should only be at most 10 characters (0x...)");
+	M_REQUIRE(*word == '0' && *(word+1) == 'x', ERR_BAD_PARAMETER, "Bad instruction format : data should start with prefix '0x'");
+	
+	// we don't care about 'final string'
+	word_t w = strtoul( word, NULL , 0);
+	
+	c->write_data = w;
+	
+	
+	return ERR_NONE;
+}
+
+static int parse_address(command_t * c, char* word) {
+	size_t word_len = strlen(word);
+	M_EXIT_IF(word_len < ADDRESS_CHARS, ERR_BAD_PARAMETER, "Bad instruction format : command order should only be 1 character");
+	M_REQUIRE(*word == '@' && *(word+1) == '0' && *(word+2) == 'x', ERR_BAD_PARAMETER, "Bad instruction format : address should start with prefix '@0x'");
+	
+	// we don't care about 'final string'
+	uint64_t a_int = strtoul( word, NULL, 0);
+	
+	virt_addr_t vaddr;
+	init_virt_addr64(&vaddr, a_int);
+
+	c->vaddr = vaddr;
+	
+	return ERR_NONE;
+	
+
+}
+	
 
 
 //TODO : remove
@@ -275,7 +384,7 @@ int next_word(char* str, char* read, size_t read_len, unsigned int* index){
 int extract_read_command(command_t* c, char* command_str){
 	c->order = READ;
 	unsigned int index = 1; //put it right after the first char, as reading it with next_word would have done
-	char word_read[MAX_COMMAND_WORD_LENGTH+1]; //+1 accounts for '\0' in last position
+	char word_read[1+MAX_COMMAND_WORD_LENGTH]; //+1 accounts for '\0' in last position
 	
 	M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse read instruction");
 	

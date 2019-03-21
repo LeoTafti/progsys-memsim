@@ -4,7 +4,7 @@
  * @file commands.h
  * @brief Processor commands(/instructions) simulation
  *
- * @author Jean-Cédric Chappelier
+ * @author Jean-Cédric Chappelier, Leo Tafti, Paul Juillard
  * @date 2018-19
  */
 
@@ -82,6 +82,34 @@ int program_shrink(program_t* program);
 int program_print(FILE* output, const program_t* program);
 
 /**
+ * @brief Helper function to print. Prints the order (READ or WRITE) of a command
+ * @param o the output stream
+ * @param c the command to print
+ */
+void print_order( FILE* const o , command_t const * c );
+
+/**
+ * @brief Helper function to print. Prints the type of a command (I or D) and the size of the data if needed.
+ * @param o the output stream
+ * @param c the command to print
+ */
+void print_type_size( FILE* const o , command_t const * c );
+
+/**
+ * @brief Helper funciton to print. Prints the data (byte or word or nothing) of a command.
+ * @param o the output stream
+ * @param c the command to print
+ */
+void print_data( FILE* const o , command_t const * c );
+
+/**
+ * @brief Helper funciton to print. Prints the hex target address of a command.
+ * @param o the output stream
+ * @param c the command to print
+ */
+void print_addr( FILE* const o , command_t const * c );
+
+/**
  * @brief Read a program (list of commands) from a file.
  * @param filename the name of the file to read from.
  * @param program the program to be filled from file.
@@ -99,11 +127,42 @@ int program_read(const char* filename, program_t* program);
 int read_command_line(FILE* input, char* str, size_t str_len);
 
 /**
- * @brief Strips one word from str, starting from index (incl.)
- * 		Possibly drops (leading) spaces
+ * @brief Strips one word from str, starting from index (incl.). Drops (leading) spaces.
  * @param str string to read one word from
  * @param read (modified) word read, guarantees '\0' as last char
  * @param index (modified) start index, modified to index of char directly following word read
  * @return ERR_NONE if ok, appropriate error code otherwise
  */
 int next_word(char* str, char* read, size_t read_len, unsigned int* index);
+
+/**
+ * @brief helper function for read. Parses order to command entry.
+ * @param c the command to fill
+ * @param word start of string to parse
+ * @return ERR_NONE if ok, appropriate error code otherwise
+ */
+static int parse_order(command_t * c, char* word);
+ 
+ /**
+ * @brief helper function for read. Parses type and potential data size to command entry.
+ * @param c the command to fill
+ * @param word start of string to parse
+ * @return ERR_NONE if ok, appropriate error code otherwise
+ */
+static int parse_type(command_t * c, char* word);
+ 
+ /**
+ * @brief helper function for read. Parses write data to command entry.
+ * @param c the command to fill
+ * @param word start of string to parse
+ * @return ERR_NONE if ok, appropriate error code otherwise
+ */
+static int parse_data(command_t * c, char* word);
+ 
+ /**
+ * @brief helper function for read. Parses address to command entry.
+ * @param c the command to fill
+ * @param word start of string to parse
+ * @return ERR_NONE if ok, appropriate error code otherwise
+ */
+ static int parse_address(command_t * c, char* word);
