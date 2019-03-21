@@ -15,7 +15,6 @@
 #define MAX_9BIT_VALUE 0x1FF
 #define MAX_12BIT_VALUE 0xFFF
 
-//=========================================================================
 int init_virt_addr(virt_addr_t * vaddr,
                    uint16_t pgd_entry,
                    uint16_t pud_entry, uint16_t pmd_entry,
@@ -38,7 +37,6 @@ int init_virt_addr(virt_addr_t * vaddr,
 	return ERR_NONE;
 }
 
-//=========================================================================
 int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64){
 	M_REQUIRE_NON_NULL(vaddr);
 	
@@ -59,7 +57,6 @@ int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64){
 	return init_virt_addr(vaddr, pgd_entry, pud_entry, pmd_entry, pte_entry, page_offset);
 }
 
-//=========================================================================
 int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset){
 	M_REQUIRE_NON_NULL(paddr);
 	M_REQUIRE(page_offset <= MAX_12BIT_VALUE, ERR_BAD_PARAMETER, "Page offset should be a 12-bit value, was %" PRIX32, page_offset);
@@ -70,13 +67,11 @@ int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset){
 	return ERR_NONE;
 }
 
-//=========================================================================
 uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr){
 	M_REQUIRE_NON_NULL(vaddr);
 	return (virt_addr_t_to_virtual_page_number(vaddr) << PAGE_OFFSET) | vaddr->page_offset;
 }
 
-//=========================================================================
 uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr){
 	M_REQUIRE_NON_NULL(vaddr);
 	
@@ -91,7 +86,6 @@ uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr){
 	return vp_number;
 }
 
-//=========================================================================
 int print_virtual_address(FILE* where, const virt_addr_t* vaddr){
 	unsigned int nb_char = 0;
 	if(where != NULL){
@@ -104,7 +98,6 @@ int print_virtual_address(FILE* where, const virt_addr_t* vaddr){
 	return nb_char;
 }
 
-//=========================================================================
 int print_physical_address(FILE* where, const phy_addr_t* paddr){
 	unsigned int nb_char = 0;
 	if(where != NULL){

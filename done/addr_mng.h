@@ -12,7 +12,6 @@
 
 #include <stdio.h> // FILE
 
-//=========================================================================
 /**
  * @brief Initialize virt_addr_t structure. Reserved bits are zeroed.
  * @param vaddr (modified) the virtual address structure to be initialized
@@ -28,7 +27,6 @@ int init_virt_addr(virt_addr_t * vaddr,
                    uint16_t pud_entry, uint16_t pmd_entry,
                    uint16_t pte_entry, uint16_t page_offset);
 
-//=========================================================================
 /**
  * @brief Initialize virt_addr_t structure from uint64_t. Reserved bits are zeros.
  * @param vaddr (modified) the virtual address structure to be initialized
@@ -37,7 +35,6 @@ int init_virt_addr(virt_addr_t * vaddr,
  */
 int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64);
 
-//=========================================================================
 /**
  * @brief Initialize phy_addr_t structure.
  * @param paddr (modified) the physical address structure to be initialized
@@ -47,7 +44,6 @@ int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64);
  */
 int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset);
 
-//=========================================================================
 /**
  * @brief Convert virt_addr_t structure to uint64_t. It's the reciprocal of init_virt_addr64().
  * @param vaddr the virtual address structure to be translated to a 64-bit pattern
@@ -55,7 +51,6 @@ int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset);
  */
 uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr);
 
-//=========================================================================
 /**
  * @brief Extract virtual page number from virt_addr_t structure.
  * @param vaddr the virtual address structure
@@ -63,7 +58,6 @@ uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr);
  */
 uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr);
 
-//=========================================================================
 /**
  * @brief print a virtual address to stream
  * @param where the stream where to print to
@@ -72,7 +66,6 @@ uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr);
  */
 int print_virtual_address(FILE* where, const virt_addr_t* vaddr);
 
-//=========================================================================
 /**
  * @brief print a physical address to stream
  * @param where the stream where to print to
