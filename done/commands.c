@@ -137,14 +137,6 @@ int program_print(FILE* output, const program_t* program) {
 	return ERR_NONE;
 }
 
-/**
- * @brief Read a program (list of commands) from a file.
- * @param filename the name of the file to read from.
- * @param program the program to be filled from file.
- * @return ERR_NONE if ok, appropriate error code otherwise.
- */
- 
-
 #define MAX_COMMAND_LENGTH 36
 #define MAX_COMMAND_WORD_LENGTH 19 // ADDRESS_CHARS
 
@@ -159,6 +151,12 @@ int program_read(const char* filename, program_t* program){
 	
 	program_init(program);
 	
+	/* NOTE: the above only parses the input. 
+	 * It doesn't check in any way that the input makes sense
+	 * Only that it has a somewhat "legal" structure (to be parseable)
+	 * checking is done in program_add_command
+	 */
+
 	do{
 		//Read one line of command
 		M_EXIT_IF_ERR(read_command_line(input, command_str, MAX_COMMAND_LENGTH+1), "Error reading one line of command from input file");
@@ -188,18 +186,7 @@ int program_read(const char* filename, program_t* program){
 		
 		M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
 		M_EXIT_IF_ERR(parse_address(&c, word_read), "Error trying to parse address");
-		
-		
-		//TODO : Write parse_xx
-		//NOTE : In parse_xx, always check given word has some expected length 
-		//
-		//size_t word_len = strlen(word_read);
-		//M_EXIT_IF(word_len != someValue, ERR_BAD_PARAMETER, "Bad instruction format : some nice explaining message");
-		
-		
-		//Note : the above only parses the input. It doesn't check in any way that the input makes sense
-		//Only that it has a somewhat "legal" structure (to be parseable)
-		//These checks should be donne in program_add_command
+
 		M_EXIT_IF_ERR(program_add_command(program, &c), "Error adding command to program");
 		
 	} while(!feof(input) && !ferror(input));
@@ -210,15 +197,7 @@ int program_read(const char* filename, program_t* program){
 }
 
 //TODO : Make every argument we can const ?
- 
 
-/**
- * @brief Read one line of command (a string) from given input file
- * @param input the input file (list of commands)
- * @param str (modified) the command read
- * @param str_len length of str char array
- * @return ERR_NONE if ok, appropriate error code otherwise (ERR_IO)
- */
 static int read_command_line(FILE* input, char* str, size_t str_len){
 	fgets(str, str_len, input);
 	
@@ -260,7 +239,7 @@ static int next_word(char* str, char* read, size_t read_len, unsigned int* index
 	do{
 		M_EXIT_IF(read_nb == read_len-1, ERR_BAD_PARAMETER, "Given 'read' char array is too small to hold next word of instruction");
 		
-		nextChar = str[*index]; // TODO on a single line? Léo : What does that mean too ?
+		nextChar = str[*index];
 		read[read_nb] = nextChar;
 		read_nb++;
 		(*index)++;
@@ -282,12 +261,13 @@ static int parse_order(command_t * c, char* word) {
 	size_t word_len = strlen(word);
 	M_EXIT_IF(word_len != ORDER_CHARS, ERR_BAD_PARAMETER, "Bad instruction format : command order should only be 1 character");
 	
-	if(*word == 'R') {
+	if(word[0] == 'R') {
 		c->order = READ;
 	}
-	else if (*word == 'W') {
+	else if (word[0] == 'W') {
 		c->order = WRITE;
-	}else{
+	}
+	else {
 		M_EXIT(ERR_BAD_PARAMETER, "Bad instruction format: first command word is not a valid order entry.");
 	}
 	
@@ -298,31 +278,25 @@ static int parse_type(command_t * c, char* word) {
 	size_t word_len = strlen(word);
 	M_EXIT_IF(word_len > TYPE_CHARS, ERR_BAD_PARAMETER, "Bad instruction format : command type and size should only be at most 2 characters");
 	
-	// NOTE : my eyes hurt!
-	// TODO : Léo – why ?
-	
-	if (word_len == 1 && *word == 'I') { //also checks I has no size TODO : Leo – "I has no size" means what ?
+	if (word_len == 1 && word[0] == 'I') {
 		c->type = INSTRUCTION;
 		// TODO set data_size to 0 or leave empty/random?
 	}
 	
-	else if (*word == 'D') {
-		c->type = DATA;
-		word++; //TODO : Léo : NOOOOOO you cannot simply move a pointer by 1 to access next char !
-				// (even if it works by some miracle (I don't know if it does), this assumes size of a char and addressing and is VERY dangerous)
-				// Access chars of an array by writing word[i] !
-				// Fix must be implemented in every parse method, above and under this... See commented code at the end of this file !
+	else if (word[0] == 'D' && word_len == 2) {
+		c->type = DATA; 
 		
-		if(*word == 'B') {
+		if(word[1] == 'B') {
 			c->data_size = sizeof(byte_t);
 		}
-		else if(*word == 'W') {
+		else if(word[1] == 'W') {
 			c->data_size = sizeof(word_t);
 		} 
 		else {
 			M_EXIT(ERR_BAD_PARAMETER, "Bad instruction format: command type D should be followed by either B or W");	
 		}
-	}else{
+	}
+	else {
 		M_EXIT(ERR_BAD_PARAMETER, "Bad instruction format: command type should be I or D");	
 	}	
 	
@@ -331,7 +305,6 @@ static int parse_type(command_t * c, char* word) {
 }
 
 /** unsigned long int strtoul(const char *str, char **endptr, int base);
-* TODO ** ? pointer of pointer?
 * may lift its own errors
 * discards first unrecognized chars
 * deduces radix based on '0x'
@@ -343,22 +316,23 @@ static int parse_type(command_t * c, char* word) {
 static int parse_data(command_t * c, char* word) {
 	size_t word_len = strlen(word);
 	M_EXIT_IF(word_len > DATA_CHARS, ERR_BAD_PARAMETER, "Bad instruction format : command data should only be at most 10 characters (0x...)");
-	M_REQUIRE(*word == '0' && *(word+1) == 'x', ERR_BAD_PARAMETER, "Bad instruction format : data should start with prefix '0x'");
+	// stroul probably returns its own error if this is not the case
+	M_REQUIRE(word[0] == '0' && word[1] == 'x', ERR_BAD_PARAMETER, "Bad instruction format : data should start with prefix '0x'");
 	
 	// we don't care about 'final string'
 	// TODO : Léo – I don't understand what this is supposed to mean.. ?
 	word_t w = strtoul( word, NULL , 0);
 	
 	c->write_data = w;
-	
-	
+
 	return ERR_NONE;
 }
 
 static int parse_address(command_t * c, char* word) {
 	size_t word_len = strlen(word);
 	M_EXIT_IF(word_len < ADDRESS_CHARS, ERR_BAD_PARAMETER, "Bad instruction format : command order should only be 1 character");
-	M_REQUIRE(*word == '@' && *(word+1) == '0' && *(word+2) == 'x', ERR_BAD_PARAMETER, "Bad instruction format : address should start with prefix '@0x'");
+	// stroul probably returns its own error if this is not the case
+	M_REQUIRE(word[0] == '@' && word[1] == '0' && word[2]== 'x', ERR_BAD_PARAMETER, "Bad instruction format : address should start with prefix '@0x'");
 	
 	// we don't care about 'final string'
 	uint64_t a_int = strtoul( word, NULL, 0);
@@ -375,11 +349,11 @@ static int parse_address(command_t * c, char* word) {
 	
 
 
-//TODO : remove
-// I leave what's below only to serve as inspiration to write the parse_xx functions
-// and as a reminder to always catch unexpected values. parse_xx functions should not be nested though,
-//so should be a lot simpler
-/*
+/*TODO : remove
+I leave what's below only to serve as inspiration to write the parse_xx functions
+and as a reminder to always catch unexpected values. parse_xx functions should not be nested though,
+so should be a lot simpler
+
 int extract_read_command(command_t* c, char* command_str){
 	c->order = READ;
 	unsigned int index = 1; //put it right after the first char, as reading it with next_word would have done
@@ -392,7 +366,6 @@ int extract_read_command(command_t* c, char* command_str){
 	
 	if(type_char == 'I'){
 		c->type = INSTRUCTION;
-		//TODO : other stuff
 	}else if(type_char == 'D'){
 		
 		M_EXIT_IF(word_len < 2, ERR_BAD_PARAMETER, "Data size not specified");
@@ -402,10 +375,8 @@ int extract_read_command(command_t* c, char* command_str){
 		
 		if(size_char == 'B'){
 			c->size = 1;
-			//TODO : read next_word, should be (at most) a byte
 		}else if(size_char == 'W'){
 			c->size = 4;
-			//TODO : read next_word, should be (at most) a word (but could be shorter...)
 		}else{
 			M_EXIT_ERR(ERR_BAD_PARAMETER, "size character was neither 'B' (Byte) nor 'W' (Word)");
 		}

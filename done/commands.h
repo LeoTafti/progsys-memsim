@@ -90,28 +90,28 @@ int program_print(FILE* output, const program_t* program);
  * @param o the output stream
  * @param c the command to print
  */
-void print_order( FILE* const o , command_t const * c );
+static void print_order( FILE* const o , command_t const * c );
 
 /**
  * @brief program_print helper function. Prints the type of a command (I or D) and the size of the data if needed.
  * @param o the output stream
  * @param c the command to print
  */
-void print_type_size( FILE* const o , command_t const * c );
+static void print_type_size( FILE* const o , command_t const * c );
 
 /**
  * @brief program_print helper function. Prints the data (byte or word or nothing) of a command.
  * @param o the output stream
  * @param c the command to print
  */
-void print_data( FILE* const o , command_t const * c );
+static void print_data( FILE* const o , command_t const * c );
 
 /**
  * @brief program_print helper function. Prints the hex target address of a command.
  * @param o the output stream
  * @param c the command to print
  */
-void print_addr( FILE* const o , command_t const * c );
+static void print_addr( FILE* const o , command_t const * c );
 
 /**
  * @brief Read a program (list of commands) from a file.
@@ -128,7 +128,7 @@ int program_read(const char* filename, program_t* program);
  * @param str_len length of str char array
  * @return ERR_NONE if ok, appropriate error code otherwise (ERR_IO)
  */
-int read_command_line(FILE* input, char* str, size_t str_len);
+static int read_command_line(FILE* input, char* str, size_t str_len);
 
 /**
  * @brief Strips one word from str, starting from index (incl.). Drops (leading) spaces.
@@ -137,7 +137,7 @@ int read_command_line(FILE* input, char* str, size_t str_len);
  * @param index (modified) start index, modified to index of char directly following word read
  * @return ERR_NONE if ok, appropriate error code otherwise
  */
-int next_word(char* str, char* read, size_t read_len, unsigned int* index);
+static int next_word(char* str, char* read, size_t read_len, unsigned int* index);
 
 /**
  * @brief program_read helper function. Parses order to command entry.
@@ -169,4 +169,4 @@ static int parse_data(command_t * c, char* word);
  * @param word start of string to parse
  * @return ERR_NONE if ok, appropriate error code otherwise
  */
- static int parse_address(command_t * c, char* word);
+static int parse_address(command_t * c, char* word);
