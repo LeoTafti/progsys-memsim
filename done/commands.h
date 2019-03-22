@@ -81,29 +81,33 @@ int program_shrink(program_t* program);
  */
 int program_print(FILE* output, const program_t* program);
 
+
+//TODO : Refactor. Helper (auxilary) functions should static AND ONLY DEFINED IN commands.C
+//This applies to the "print" auxilary functions, as well as the various "parse" and others
+
 /**
- * @brief Helper function to print. Prints the order (READ or WRITE) of a command
+ * @brief program_print helper function. Prints the order (READ or WRITE) of a command
  * @param o the output stream
  * @param c the command to print
  */
 void print_order( FILE* const o , command_t const * c );
 
 /**
- * @brief Helper function to print. Prints the type of a command (I or D) and the size of the data if needed.
+ * @brief program_print helper function. Prints the type of a command (I or D) and the size of the data if needed.
  * @param o the output stream
  * @param c the command to print
  */
 void print_type_size( FILE* const o , command_t const * c );
 
 /**
- * @brief Helper funciton to print. Prints the data (byte or word or nothing) of a command.
+ * @brief program_print helper function. Prints the data (byte or word or nothing) of a command.
  * @param o the output stream
  * @param c the command to print
  */
 void print_data( FILE* const o , command_t const * c );
 
 /**
- * @brief Helper funciton to print. Prints the hex target address of a command.
+ * @brief program_print helper function. Prints the hex target address of a command.
  * @param o the output stream
  * @param c the command to print
  */
@@ -136,32 +140,32 @@ int read_command_line(FILE* input, char* str, size_t str_len);
 int next_word(char* str, char* read, size_t read_len, unsigned int* index);
 
 /**
- * @brief helper function for read. Parses order to command entry.
- * @param c the command to fill
+ * @brief program_read helper function. Parses order to command entry.
+ * @param c (modified) the command to fill
  * @param word start of string to parse
  * @return ERR_NONE if ok, appropriate error code otherwise
  */
 static int parse_order(command_t * c, char* word);
  
  /**
- * @brief helper function for read. Parses type and potential data size to command entry.
- * @param c the command to fill
+ * @brief program_read helper function. Parses type and potential data size to command entry.
+ * @param c (modified) the command to fill
  * @param word start of string to parse
  * @return ERR_NONE if ok, appropriate error code otherwise
  */
 static int parse_type(command_t * c, char* word);
  
  /**
- * @brief helper function for read. Parses write data to command entry.
- * @param c the command to fill
+ * @brief program_read helper function. Parses write data to command entry.
+ * @param c (modified) the command to fill
  * @param word start of string to parse
  * @return ERR_NONE if ok, appropriate error code otherwise
  */
 static int parse_data(command_t * c, char* word);
  
  /**
- * @brief helper function for read. Parses address to command entry.
- * @param c the command to fill
+ * @brief program_read helper function. Parses address to command entry.
+ * @param c (modified) the command to fill
  * @param word start of string to parse
  * @return ERR_NONE if ok, appropriate error code otherwise
  */

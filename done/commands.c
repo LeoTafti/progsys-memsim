@@ -111,6 +111,7 @@ int program_print(FILE* output, const program_t* program) {
 	for(int i = 0; i < program->nb_lines; i++) {
 		c = program->listing[i];
 		
+		//TODO : remove
 		//old code just in case
 		/*uint64_t addr = virt_addr_t_to_uint64_t(&c.vaddr);
 		
@@ -169,8 +170,6 @@ int program_read(const char* filename, program_t* program){
 		
 		unsigned int index = 0;
 		char word_read[1+MAX_COMMAND_WORD_LENGTH]; //+1 accounts for '\0' in last position 
-		
-		// NOTE : need to pass c as a pointer to change its values.
 		
 		M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
 		M_EXIT_IF_ERR(parse_order(&c, word_read), "Error trying to parse order");
@@ -261,7 +260,7 @@ static int next_word(char* str, char* read, size_t read_len, unsigned int* index
 	do{
 		M_EXIT_IF(read_nb == read_len-1, ERR_BAD_PARAMETER, "Given 'read' char array is too small to hold next word of instruction");
 		
-		nextChar = str[*index]; // TODO on a single line?
+		nextChar = str[*index]; // TODO on a single line? Léo : What does that mean too ?
 		read[read_nb] = nextChar;
 		read_nb++;
 		(*index)++;
@@ -274,10 +273,10 @@ static int next_word(char* str, char* read, size_t read_len, unsigned int* index
 }
 
 
-#define ORDER_CHARS 1 // I or W
-#define TYPE_CHARS 2 // I or DB or DW
-#define DATA_CHARS 10 // 0x + 8 hex
-#define ADDRESS_CHARS 19 // @0x + 16 hex
+#define ORDER_CHARS 1 	// I or W
+#define TYPE_CHARS 2 	// I or DB or DW
+#define DATA_CHARS 10 	// 0x + 8 hex
+#define ADDRESS_CHARS 19// @0x + 16 hex
 
 static int parse_order(command_t * c, char* word) {
 	size_t word_len = strlen(word);
@@ -285,18 +284,14 @@ static int parse_order(command_t * c, char* word) {
 	
 	if(*word == 'R') {
 		c->order = READ;
-		return ERR_NONE;
 	}
 	else if (*word == 'W') {
 		c->order = WRITE;
-		return ERR_NONE;
+	}else{
+		M_EXIT(ERR_BAD_PARAMETER, "Bad instruction format: first command word is not a valid order entry.");
 	}
 	
-	// TODO compiler doesnt like returning macros
-	M_EXIT(ERR_BAD_PARAMETER, "Bad instruction format: first command word is not a valid order entry.");
-	
-	return 1;
-
+	return ERR_NONE;
 }
 
 static int parse_type(command_t * c, char* word) {	
@@ -304,33 +299,34 @@ static int parse_type(command_t * c, char* word) {
 	M_EXIT_IF(word_len > TYPE_CHARS, ERR_BAD_PARAMETER, "Bad instruction format : command type and size should only be at most 2 characters");
 	
 	// NOTE : my eyes hurt!
+	// TODO : Léo – why ?
 	
-	if (word_len == 1 && *word == 'I') { //also checks I has no size
+	if (word_len == 1 && *word == 'I') { //also checks I has no size TODO : Leo – "I has no size" means what ?
 		c->type = INSTRUCTION;
 		// TODO set data_size to 0 or leave empty/random?
-		return ERR_NONE;
 	}
 	
 	else if (*word == 'D') {
 		c->type = DATA;
-		word++;
+		word++; //TODO : Léo : NOOOOOO you cannot simply move a pointer by 1 to access next char !
+				// (even if it works by some miracle (I don't know if it does), this assumes size of a char and addressing and is VERY dangerous)
+				// Access chars of an array by writing word[i] !
+				// Fix must be implemented in every parse method, above and under this... See commented code at the end of this file !
 		
 		if(*word == 'B') {
 			c->data_size = sizeof(byte_t);
-			return ERR_NONE;
 		}
 		else if(*word == 'W') {
 			c->data_size = sizeof(word_t);
-			return ERR_NONE;
 		} 
 		else {
 			M_EXIT(ERR_BAD_PARAMETER, "Bad instruction format: command type D should be followed by either B or W");	
 		}
-	}
+	}else{
+		M_EXIT(ERR_BAD_PARAMETER, "Bad instruction format: command type should be I or D");	
+	}	
 	
-	// TODO compiler doesnt like returning macros
-	M_EXIT(ERR_BAD_PARAMETER, "Bad instruction format: command type should be I or D");		
-	return 1;		
+	return ERR_NONE;	
 	
 }
 
@@ -341,6 +337,8 @@ static int parse_type(command_t * c, char* word) {
 * deduces radix based on '0x'
 * cf http://pubs.opengroup.org/onlinepubs/7908799/xsh/strtol.html
 */
+
+//TODO : Léo – WTF is the above comment ? I'm quite sure we don't need that...
 		
 static int parse_data(command_t * c, char* word) {
 	size_t word_len = strlen(word);
@@ -348,6 +346,7 @@ static int parse_data(command_t * c, char* word) {
 	M_REQUIRE(*word == '0' && *(word+1) == 'x', ERR_BAD_PARAMETER, "Bad instruction format : data should start with prefix '0x'");
 	
 	// we don't care about 'final string'
+	// TODO : Léo – I don't understand what this is supposed to mean.. ?
 	word_t w = strtoul( word, NULL , 0);
 	
 	c->write_data = w;
