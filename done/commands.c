@@ -61,14 +61,16 @@ int program_add_command(program_t* program, const command_t* command) {
 		int write_byte_coherent = (command->data_size == sizeof(byte_t)) && (command->write_data <= BYTE_MAX_VALUE);
 		M_REQUIRE( write_word_coherent || write_byte_coherent, ERR_SIZE, "%s", "illegal command: write data is too big compared to declared datasize");
 	}
+	// TODO reading instructions doesnt have a specified size, data_size may be uninitialized.
+	/*
 	if(command->type == INSTRUCTION){
 		M_REQUIRE( command->data_size == sizeof(word_t), ERR_BAD_PARAMETER, "%s", "Illegal command: Instruction data size should always be sizeof(word_t)");
 	}
-	
+	*/
 	// Address offset should be a multiple of data size
 	if(command->data_size == sizeof(word_t)){
 		//Should be word aligned
-		M_REQUIRE((command->vaddr.page_offset & 0x11) == 0, ERR_ADDR, "Illegal command : address should be word aligned when dealing with words");
+		M_REQUIRE((command->vaddr.page_offset & 0x11) == 0, ERR_ADDR, "%s", "Illegal command : address should be word aligned when dealing with words");
 	}
 	// Note : if data is in bytes, every address has valid offset
 	
@@ -86,7 +88,7 @@ int program_shrink(program_t* program) {
 }
 
 // program_print helper functions' prototypes
-static void print_order(FILE* const o, command_t const * c);
+static void print_order(FILE* o, command_t const * c);
 static void print_type_size(FILE* const o, command_t const * c);
 static void print_data(FILE* const o, command_t const * c);
 static void print_addr(FILE* const o, command_t const * c);
@@ -95,6 +97,8 @@ int program_print(FILE* output, const program_t* program) {
 	M_REQUIRE_NON_NULL(output);
 	M_REQUIRE_NON_NULL(program);
 	
+	// FIXME doesnt print anything
+	// cf very weird output order :)
 	command_t c;
 	printf("foooo\n");
 
@@ -106,7 +110,6 @@ int program_print(FILE* output, const program_t* program) {
 		print_type_size(output, &c);
 		print_data(output, &c);
 		print_addr(output, &c);
-		
 		fprintf(output, "\n");	
 		printf("spamspam\n");
 	}
@@ -192,8 +195,6 @@ int program_read(const char* filename, program_t* program){
 		M_EXIT_IF_ERR(parse_address(&c, word_read), "Error trying to parse address");
 		printf("read address\n");
 
-		// TODO add_command already exits and throws its own error+message, do we need imbricated checks?
-		// Léo : I think we need this, to make program_read return the error too (add_command returning an error doesn't stop the program !)
 		M_EXIT_IF_ERR(program_add_command(program, &c), "Error adding command to program");
 		
 	} while(!feof(input) && !ferror(input));
@@ -227,7 +228,6 @@ static int read_command_line(FILE* input, char* str, size_t str_len){
  */
 static int next_word(char* str, char* read, size_t read_len, unsigned int* index){
 	//TODO : test this function on empty string, or just one char string, or just one "space" char string, etc
-	// if this works, the above probably works too (and inversely !)
 	int str_len = strlen(str);
 	
 	//"Drop" leading spaces, if any
@@ -249,8 +249,7 @@ static int next_word(char* str, char* read, size_t read_len, unsigned int* index
 		read_nb++;
 		(*index)++;
 	
-	} while(*index < str_len && isspace(nextChar));
-	
+	} while(*index < str_len && !isspace(str[*index])); // TODO beurk mais je craque mais ca marche
 	read[read_nb] = '\0';
 	
 	return ERR_NONE;
@@ -301,7 +300,7 @@ static int parse_type_and_size(command_t * c, char* word) {
 		}
 	}
 	else {
-		M_EXIT(ERR_BAD_PARAMETER, "%s %c", "Bad instruction format: command type should be I, DB or DW");	
+		M_EXIT(ERR_BAD_PARAMETER, "%s %c", "Bad instruction format: command type should be I, DB or DW but was:", word[0]);	
 	}	
 	
 	return ERR_NONE;
@@ -314,14 +313,16 @@ static int parse_type_and_size(command_t * c, char* word) {
  * */
 static int parse_data(command_t * c, char* word) {
 	size_t word_len = strlen(word);
-	M_REQUIRE(word_len <= DATA_CHARS, ERR_BAD_PARAMETER, "Bad instruction format : command data string should be at most 10 characters (\"0x\" + at most 8 HEX digits)");
-	M_REQUIRE(word[0] == '0' && word[1] == 'x', ERR_BAD_PARAMETER, "Bad instruction format : data should start with prefix '0x'");
+	M_REQUIRE(word_len <= DATA_CHARS, ERR_BAD_PARAMETER, "%s", "Bad instruction format : command data string should be at most 10 characters (\"0x\" + at most 8 HEX digits)");
+	M_REQUIRE(word[0] == '0' && word[1] == 'x', ERR_BAD_PARAMETER, "%s", "Bad instruction format : data should start with prefix '0x'");
 	
 	
 	//TODO : strtoul is nice, using this we can check if the data is valid (ie each char is an HEX one) (see documentation)
 	char* ptr;
-	word_t w = strtoul(word, &ptr , 0); //TODO : I'm not 100% sure w survives upon exiting the function... See W6 Prog. C lectures
-	M_REQUIRE(*ptr == '\0', ERR_BAD_PARAMETER, "Bad instruction format : data should only contain HEX digits");	//After having read the data word, we should find a '\0'. Otherwise means we stopped prematurely.
+	//TODO : I'm not 100% sure w survives upon exiting the function... See W6 Prog. C lectures -> 
+	word_t w = strtoul(word, &ptr , 0); 
+	//After having read the data word, we should find a '\0'. Otherwise means we stopped prematurely.
+	M_REQUIRE(*ptr == '\0', ERR_BAD_PARAMETER, "%s", "Bad instruction format : data should only contain HEX digits");
 	
 	c->write_data = w;
 
@@ -333,10 +334,14 @@ static int parse_address(command_t * c, char* word) {
 	M_REQUIRE(word[0] == '@' && word[1] == '0' && word[2]== 'x', ERR_BAD_PARAMETER, "%s", "Bad instruction format : address should start with prefix '@0x'");
 	
 	//TODO : strtoul will probably fail due to the leading '@' char (?)
+	//cf doc initial unrecognized string
 	
 	char* ptr;
-	uint64_t a_int = strtoul(word, &ptr, 0);
-	M_REQUIRE(*ptr == '\0', ERR_ADDR, "Bad instruction format : address should only contain HEX digits");
+	uint64_t a_int = strtoul(word, NULL, 0);
+	//uint64_t a_int = strtoul(word, &ptr, 0);
+	//TODO why do we need the final string value? read command will error if there is something after address
+	// ptr behavior very wierd here, uncomment the lines using it to see!
+	//M_REQUIRE(*ptr == '\0', ERR_ADDR, "%s %c", "Bad instruction format : address should end here but last char was ", *ptr);
 	
 	virt_addr_t vaddr;
 	init_virt_addr64(&vaddr, a_int);
@@ -344,6 +349,4 @@ static int parse_address(command_t * c, char* word) {
 	c->vaddr = vaddr; //TODO : I'm not 100% sure vaddr survives upon exiting the function... See W6 Prog. C lectures
 	
 	return ERR_NONE;
-	
-
 }
