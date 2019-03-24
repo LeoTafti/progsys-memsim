@@ -10,7 +10,7 @@ CFLAGS = -std=c11 -Wall -Wpedantic -g
 # -Wconversion -Wunreachable-code
 
 # uncomment if you want to add DEBUG flag
-# CPPFLAGS += -DDEBUG
+CPPFLAGS += -DDEBUG
 
 # ----------------------------------------------------------------------
 # feel free to update/modifiy this part as you wish
@@ -24,15 +24,20 @@ all::
 error.o :
 addr_mng.o: 
 
-commands.o: error.o addr_mng.o
+commands.o: error.o addr_mng.o addr_mng.h
 
 test-addr: addr_mng.o tests.h
-test-commands:
+test-commands: commands.o addr_mng.o error.o 
 
 # ==== EXE =============================================================
 
-test: test-addr
-	./test-commands
+test: test-addr test-commands
+	@echo " +++++++ TESTING ADDR +++++++"
+	./test-addr
+	@echo " +++++++ TESTING COMMANDS +++++++"
+	./test-commands tests/files/commands01.txt
+	./test-commands tests/files/commands02.txt
+	@echo " +++++++ DONE +++++++"
 
 
 

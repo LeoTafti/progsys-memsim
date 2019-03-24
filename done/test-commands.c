@@ -1,20 +1,20 @@
-
+#include "error.h"
+#include "commands.h"
 #include <stdio.h>
 
+int main(int argc, char *argv[])
+{
 
-int main() {
-	
-	
-	
-	printf("Hellow world\n");
-	
-	char c = 'x';
-	printf("my char: %c\n", c);
-	
-	c = '\0';
-	
-	printf("my empty char: %c\n", c);
-	
-	return 0;
-	
+    if (argc < 2) {
+        fprintf(stderr, "please provide command filename to read from\n");
+        return 1;
+    }
+
+    program_t pgm;
+    if (program_read(argv[1], &pgm) == ERR_NONE) {
+		printf("spamspam\n");
+        (void)program_print(stdout, &pgm);
+    }
+
+    return 0;
 }

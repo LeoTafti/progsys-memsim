@@ -50,7 +50,6 @@ typedef struct{
 #define for_all_lines(X, P) const command_t* end_pgm_ = (P)->listing + (P)->nb_lines; \
     for(const command_t* X = (P)->listing; X < end_pgm_; ++X)
 
-
 /**
  * @brief "Constructor" for program_t: initialize a program.
  * @param program (modified) the program to be initialized.
@@ -81,38 +80,6 @@ int program_shrink(program_t* program);
  */
 int program_print(FILE* output, const program_t* program);
 
-
-//TODO : Refactor. Helper (auxilary) functions should static AND ONLY DEFINED IN commands.C
-//This applies to the "print" auxilary functions, as well as the various "parse" and others
-
-/**
- * @brief program_print helper function. Prints the order (READ or WRITE) of a command
- * @param o the output stream
- * @param c the command to print
- */
-static void print_order( FILE* const o , command_t const * c );
-
-/**
- * @brief program_print helper function. Prints the type of a command (I or D) and the size of the data if needed.
- * @param o the output stream
- * @param c the command to print
- */
-static void print_type_size( FILE* const o , command_t const * c );
-
-/**
- * @brief program_print helper function. Prints the data (byte or word or nothing) of a command.
- * @param o the output stream
- * @param c the command to print
- */
-static void print_data( FILE* const o , command_t const * c );
-
-/**
- * @brief program_print helper function. Prints the hex target address of a command.
- * @param o the output stream
- * @param c the command to print
- */
-static void print_addr( FILE* const o , command_t const * c );
-
 /**
  * @brief Read a program (list of commands) from a file.
  * @param filename the name of the file to read from.
@@ -120,53 +87,3 @@ static void print_addr( FILE* const o , command_t const * c );
  * @return ERR_NONE if ok, appropriate error code otherwise.
  */
 int program_read(const char* filename, program_t* program);
-
-/**
- * @brief Read one line of command (a string) from given input file
- * @param input the input file (list of commands)
- * @param str (modified) the command read
- * @param str_len length of str char array
- * @return ERR_NONE if ok, appropriate error code otherwise (ERR_IO)
- */
-static int read_command_line(FILE* input, char* str, size_t str_len);
-
-/**
- * @brief Strips one word from str, starting from index (incl.). Drops (leading) spaces.
- * @param str string to read one word from
- * @param read (modified) word read, guarantees '\0' as last char
- * @param index (modified) start index, modified to index of char directly following word read
- * @return ERR_NONE if ok, appropriate error code otherwise
- */
-static int next_word(char* str, char* read, size_t read_len, unsigned int* index);
-
-/**
- * @brief program_read helper function. Parses order to command entry.
- * @param c (modified) the command to fill
- * @param word start of string to parse
- * @return ERR_NONE if ok, appropriate error code otherwise
- */
-static int parse_order(command_t * c, char* word);
- 
- /**
- * @brief program_read helper function. Parses type and potential data size to command entry.
- * @param c (modified) the command to fill
- * @param word start of string to parse
- * @return ERR_NONE if ok, appropriate error code otherwise
- */
-static int parse_type(command_t * c, char* word);
- 
- /**
- * @brief program_read helper function. Parses write data to command entry.
- * @param c (modified) the command to fill
- * @param word start of string to parse
- * @return ERR_NONE if ok, appropriate error code otherwise
- */
-static int parse_data(command_t * c, char* word);
- 
- /**
- * @brief program_read helper function. Parses address to command entry.
- * @param c (modified) the command to fill
- * @param word start of string to parse
- * @return ERR_NONE if ok, appropriate error code otherwise
- */
-static int parse_address(command_t * c, char* word);
