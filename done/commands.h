@@ -83,7 +83,7 @@ int program_print(FILE* output, const program_t* program);
 /**
  * @brief Read a program (list of commands) from a file.
  * @param filename the name of the file to read from.
- * @param program the program to be filled from file.
+ * @param program (modified) the program to be filled from file.
  * @return ERR_NONE if ok, appropriate error code otherwise.
  */
 int program_read(const char* filename, program_t* program);
