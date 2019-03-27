@@ -46,7 +46,7 @@ int program_init(program_t* program) {
  * @return ERR_NONE if ok, appropriate error code otherwise.
  */
 int program_free(program_t* program){
-	//TODO : complete
+	return 0;
 }
 
 static int program_enlarge(program_t* program);
@@ -140,18 +140,15 @@ int program_print(FILE* output, const program_t* program) {
 	M_REQUIRE_NON_NULL(program);
 
 	command_t c;
+	printf("%d", program->nb_lines);
 	
 	for(int i = 0; i < program->nb_lines; i++) {
 		c = program->listing[i];
 		
 		print_order(output, &c);
-		fflush(output);
 		print_type_size(output, &c);
-		fflush(output);
 		print_data(output, &c);
-		fflush(output);
 		print_addr(output, &c);
-		fflush(output);
 		fprintf(output, "\n");
 		fflush(output);
 	}
@@ -171,7 +168,10 @@ static void print_type_size( FILE* const o , command_t const * c ){
 	}
 }
 static void print_data( FILE* const o , command_t const * c ) {
-	if(c->order == WRITE) fprintf(o, "0x%08" PRIX32 " ", c->write_data);
+	if(c->order == WRITE) {
+		if(c->data_size == sizeof(byte_t)) fprintf(o, "0x%02" PRIX32 "       ", c->write_data);
+		else fprintf(o, "0x%08" PRIX32 " ", c->write_data);
+	}
 	else fprintf(o, "           "); // 11 whites spaces
 }
 static void print_addr( FILE* const o , command_t const * c ) {
