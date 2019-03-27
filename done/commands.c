@@ -54,7 +54,6 @@ int program_add_command(program_t* program, const command_t* command) {
 	M_REQUIRE_NON_NULL(program);   
 	M_REQUIRE_NON_NULL(command);
 	
-	
 	// Write Instr.
 	M_REQUIRE( !(command->order == WRITE && command->type == INSTRUCTION), ERR_BAD_PARAMETER, "%s",  "Illegal command: cannot write instructions" );
 
@@ -89,8 +88,8 @@ int program_add_command(program_t* program, const command_t* command) {
 		M_EXIT_IF_ERR(program_enlarge(program), "Error trying to reallocate more memory");
 	}
 	
-	(program->nb_lines)++;
 	program->listing[program->nb_lines] = *command;
+	(program->nb_lines)++;
 	return ERR_NONE;
 }
 
@@ -146,9 +145,17 @@ int program_print(FILE* output, const program_t* program) {
 		c = program->listing[i];
 		
 		print_order(output, &c);
+		fflush(output);
+		
 		print_type_size(output, &c);
+		fflush(output);
+		
 		print_data(output, &c);
+		fflush(output);
+		
 		print_addr(output, &c);
+		fflush(output);
+		
 		fprintf(output, "\n");
 		fflush(output);
 	}
@@ -207,35 +214,32 @@ int program_read(const char* filename, program_t* program){
 	 * Validity checks are performed in program_add_command
 	 */
 
-	do{
-		//Read one line of command
-		M_EXIT_IF_ERR(read_command_line(input, command_str, MAX_COMMAND_LENGTH+1), "Error reading one line of command from input file");
+	while((read_command_line(input, command_str, MAX_COMMAND_LENGTH+1) != 0)
+		&& !feof(input) && !ferror(input)){
 		
-		//Make it a command_t
+		//Make a command_t of the line read
 		command_t c;
 		(void)memset(&c, 0, sizeof(c)); 
 		
-		
 		unsigned int index = 0;
-		char word_read[1+MAX_COMMAND_WORD_LENGTH]; //+1 accounts for '\0' in last position 
+		char word_read[MAX_COMMAND_WORD_LENGTH+1]; //+1 accounts for '\0' in last position 
 		
-		M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
+		M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
 		M_EXIT_IF_ERR(parse_order(&c, word_read), "Error trying to parse order");
 		
-		M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
+		M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
 		M_EXIT_IF_ERR(parse_type_and_size(&c, word_read), "Error trying to parse type and size");
 		
 		if(c.order == WRITE){
-			M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
+			M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
 			M_EXIT_IF_ERR(parse_data(&c, word_read), "Error trying to parse data");
 		}
 		
-		M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
+		M_EXIT_IF_ERR(next_word(command_str, word_read, MAX_COMMAND_WORD_LENGTH+1, &index), "Error trying to parse instruction");
 		M_EXIT_IF_ERR(parse_address(&c, word_read), "Error trying to parse address");
-
-		M_EXIT_IF_ERR(program_add_command(program, &c), "Error adding command to program");
 		
-	} while(!feof(input) && !ferror(input));
+		M_EXIT_IF_ERR(program_add_command(program, &c), "Error adding command to program");
+	}
 	
 	fclose(input);
 	
@@ -253,7 +257,7 @@ static int read_command_line(FILE* input, char* str, size_t str_len){
 		str[len_read] = '\0';
 	}
 	
-	return ERR_NONE;
+	return len_read;
 }
 
 /**
