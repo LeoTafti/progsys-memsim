@@ -24,9 +24,9 @@ all::
 error.o :
 addr_mng.o: 
 
-commands.o: error.o addr_mng.o addr_mng.h
+commands.o: commands.c commands.h mem_access.h addr.h addr_mng.h error.h
 
-test-addr: addr_mng.o tests.h
+test-addr: addr_mng.o
 test-commands: commands.o addr_mng.o error.o 
 
 # ==== EXE =============================================================
