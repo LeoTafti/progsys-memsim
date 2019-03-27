@@ -23,12 +23,10 @@
 
 #define INIT_COMMANDS_NB 10
 
-//TODO : Make every argument we can const ?
-
-//TODO : Remove all the (debug) printf
+//TODO : Comment static methods ?
 
 
-int program_init(program_t* program) {
+int program_init(program_t * program) {
 	M_REQUIRE_NON_NULL(program);
 	
 	program->listing = calloc(INIT_COMMANDS_NB, sizeof(command_t));
@@ -50,7 +48,7 @@ int program_free(program_t* program){
 }
 
 static int program_enlarge(program_t* program);
-int program_add_command(program_t* program, const command_t* command) {
+int program_add_command(program_t* program, command_t const * command) {
 	M_REQUIRE_NON_NULL(program);   
 	M_REQUIRE_NON_NULL(command);
 	
@@ -129,12 +127,12 @@ int program_shrink(program_t* program) {
 }
 
 // program_print helper functions' prototypes
-static void print_order(FILE* o, command_t const * c);
-static void print_type_size(FILE* const o, command_t const * c);
-static void print_data(FILE* const o, command_t const * c);
-static void print_addr(FILE* const o, command_t const * c);
+static void print_order(	FILE* o, command_t const * c);
+static void print_type_size(FILE* o, command_t const * c);
+static void print_data(		FILE* o, command_t const * c);
+static void print_addr(		FILE* o, command_t const * c);
 
-int program_print(FILE* output, const program_t* program) {
+int program_print(FILE* output, program_t const * program) {
 	M_REQUIRE_NON_NULL(output);
 	M_REQUIRE_NON_NULL(program);
 
@@ -162,37 +160,37 @@ int program_print(FILE* output, const program_t* program) {
 	return ERR_NONE;
 }
 
-static void print_order( FILE* const o , command_t const * c ) {
+static void print_order(FILE*  o , command_t const * c) {
 	 if(c->order == READ) fprintf(o, "R ");
 	 else fprintf(o, "W ");
 }
-static void print_type_size( FILE* const o , command_t const * c ){ 
+static void print_type_size(FILE* o , command_t const * c){ 
 	if(c->type == INSTRUCTION) fprintf(o, "I  "); // I and two white spaces
 	else { 
 		if (c->data_size == sizeof(word_t)) fprintf(o, "DW ");
 		else fprintf(o, "DB "); 
 	}
 }
-static void print_data( FILE* const o , command_t const * c ) {
+static void print_data(FILE* o , command_t const * c) {
 	if(c->order == WRITE) {
 		if(c->data_size == sizeof(byte_t)) fprintf(o, "0x%02" PRIX32 "       ", c->write_data);
 		else fprintf(o, "0x%08" PRIX32 " ", c->write_data);
 	}
 	else fprintf(o, "           "); // 11 whites spaces
 }
-static void print_addr( FILE* const o , command_t const * c ) {
+static void print_addr(FILE* o , command_t const * c) {
 	fprintf(o, "@0x%016" PRIX64, virt_addr_t_to_uint64_t( &(c->vaddr)) );
 }
 
 
 
 // helper function prototypes
-static int read_command_line(FILE* input, char* str, size_t str_len);
-static int next_word(char* str, char* read, size_t read_len, unsigned int* index);
-static int parse_order(command_t * c, char* word);
-static int parse_type_and_size(command_t * c, char* word);
-static int parse_data(command_t * c, char* word);
-static int parse_address(command_t * c, char* word);
+static int read_command_line(FILE* input, char* str, const size_t str_len);
+static int next_word(char* str, char* read, const size_t read_len, unsigned int* index);
+static int parse_order(command_t * c, char const * word);
+static int parse_type_and_size(command_t * c, char const * word);
+static int parse_data(command_t * c, char const * word);
+static int parse_address(command_t * c, char const * word);
 #define MAX_COMMAND_LENGTH 36
 #define MAX_COMMAND_WORD_LENGTH 19 // ADDRESS_CHARS
 
@@ -298,7 +296,7 @@ static int next_word(char* str, char* read, size_t read_len, unsigned int* index
 #define TYPE_CHARS 2 	// I or DB or DW
 #define DATA_CHARS 10 	// 0x + 8 hex
 #define ADDRESS_CHARS 19// @0x + 16 hex
-static int parse_order(command_t * c, char* word) {
+static int parse_order(command_t * c, char const * word) {
 	size_t word_len = strlen(word);
 	M_EXIT_IF(word_len != ORDER_CHARS, ERR_BAD_PARAMETER, "%s", "Bad instruction format : command order should only be 1 character");
 	
@@ -314,7 +312,7 @@ static int parse_order(command_t * c, char* word) {
 	
 	return ERR_NONE;
 }
-static int parse_type_and_size(command_t * c, char* word) {	
+static int parse_type_and_size(command_t * c, char const * word) {	
 	size_t word_len = strlen(word);
 	M_EXIT_IF(word_len > TYPE_CHARS, ERR_BAD_PARAMETER, "%s", "Bad instruction format : command type and size should only be at most 2 characters");
 	
@@ -346,7 +344,7 @@ static int parse_type_and_size(command_t * c, char* word) {
  * converts a string to an unsigned long
  * man strtoul for more information
  * */
-static int parse_data(command_t * c, char* word) {
+static int parse_data(command_t * c, char const * word) {
 	size_t word_len = strlen(word);
 	M_REQUIRE(word_len <= DATA_CHARS, ERR_BAD_PARAMETER, "%s", "Bad instruction format : command data string should be at most 10 characters (\"0x\" + at most 8 HEX digits)");
 	M_REQUIRE(word[0] == '0' && word[1] == 'x', ERR_BAD_PARAMETER, "%s", "Bad instruction format : data should start with prefix '0x'");
@@ -360,7 +358,7 @@ static int parse_data(command_t * c, char* word) {
 
 	return ERR_NONE;
 }
-static int parse_address(command_t * c, char* word) {
+static int parse_address(command_t * c, char const * word) {
 	size_t word_len = strlen(word);
 	M_REQUIRE(word_len == ADDRESS_CHARS, ERR_BAD_PARAMETER, "%s", "Bad instruction format : command address should take 19 chars (\"@0x\" + 16 HEX digits)");
 	M_REQUIRE(word[0] == '@' && word[1] == '0' && word[2]== 'x', ERR_BAD_PARAMETER, "%s", "Bad instruction format : address should start with prefix '@0x'");
