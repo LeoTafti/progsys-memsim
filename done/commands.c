@@ -19,7 +19,7 @@
 #include "error.h"
 
 #define BYTE_MAX_VALUE 0xFF
-#define WORD_MAX_VALUE 0xFFFFFFFF // TODO is unsigned?
+#define WORD_MAX_VALUE 0xFFFFFFFF
 
 #define INIT_COMMANDS_NB 10
 
@@ -55,12 +55,12 @@ int program_add_command(program_t* program, const command_t* command) {
 	M_REQUIRE_NON_NULL(command);
 	
 	// Write Instr.
-	M_REQUIRE( !(command->order == WRITE && command->type == INSTRUCTION), ERR_BAD_PARAMETER, "%s",  "Illegal command: cannot write instructions" );
-
+	M_REQUIRE( !(command->type == INSTRUCTION && command->data_size != sizeof(word_t) ), ERR_BAD_PARAMETER, "illegal command: read should not have write data");
+	
 	// TODO : Léo – We should probably ask TA's about that (ie. what to do of unused fields).
 	// R and non-empty write data
 	// here we consider that the write_data is irrelevant and should not raise an error is set
-	// M_REQUIRE( !(command->order == READ, ERR_BAD_PARAMETER, "illegal command: read should not have write data", void);
+	// M_REQUIRE( !(command->order == WRITE && command->type == INSTRUCTION), ERR_BAD_PARAMETER, "%s",  "Illegal command: cannot write instructions" );
 	
 	if(command->order == WRITE){
 		// data size is either word or byte
@@ -139,7 +139,6 @@ int program_print(FILE* output, const program_t* program) {
 	M_REQUIRE_NON_NULL(program);
 
 	command_t c;
-	printf("%d", program->nb_lines);
 	
 	for(int i = 0; i < program->nb_lines; i++) {
 		c = program->listing[i];
@@ -268,7 +267,6 @@ static int read_command_line(FILE* input, char* str, size_t str_len){
  * @return ERR_NONE if ok, appropriate error code otherwise
  */
 static int next_word(char* str, char* read, size_t read_len, unsigned int* index){
-	//TODO : test this function on empty string, or just one char string, or just one "space" char string, etc
 	int str_len = strlen(str);
 	
 	//"Drop" leading spaces, if any
@@ -353,10 +351,7 @@ static int parse_data(command_t * c, char* word) {
 	M_REQUIRE(word_len <= DATA_CHARS, ERR_BAD_PARAMETER, "%s", "Bad instruction format : command data string should be at most 10 characters (\"0x\" + at most 8 HEX digits)");
 	M_REQUIRE(word[0] == '0' && word[1] == 'x', ERR_BAD_PARAMETER, "%s", "Bad instruction format : data should start with prefix '0x'");
 	
-	
-	//TODO : strtoul is nice, using this we can check if the data is valid (ie each char is an HEX one) (see documentation)
 	char* ptr;
-	//TODO : I'm not 100% sure w survives upon exiting the function... See W6 Prog. C lectures -> 
 	word_t w = strtoul(word, &ptr , 0); 
 	//After having read the data word, we should find a '\0'. Otherwise means we stopped prematurely.
 	M_REQUIRE(*ptr == '\0', ERR_BAD_PARAMETER, "%s", "Bad instruction format : data should only contain HEX digits");
