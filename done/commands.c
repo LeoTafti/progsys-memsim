@@ -7,7 +7,7 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h> 	// strtoul()
+#include <stdlib.h> 	// strtoul(), memory alloc.
 #include <inttypes.h> 	// PRIX macro
 #include <string.h>		// strlen()
 #include <ctype.h> 		// isspace()
@@ -21,6 +21,8 @@
 #define BYTE_MAX_VALUE 0xFF
 #define WORD_MAX_VALUE 0xFFFFFFFF // TODO is unsigned?
 
+#define INIT_COMMANDS_NB 10
+
 //TODO : Make every argument we can const ?
 
 //TODO : Remove all the (debug) printf
@@ -29,6 +31,9 @@
 int program_init(program_t* program) {
 	M_REQUIRE_NON_NULL(program);
 	
+	program->listing = calloc(INIT_COMMANDS_NB, sizeof(command_t));
+	M_EXIT_IF_NULL(program->listing, 10*sizeof(command_t));
+	
 	(void)memset(program->listing, 0, sizeof(program->listing));
 	program->nb_lines = 0;
 	program->allocated = sizeof(program->listing);
@@ -36,13 +41,12 @@ int program_init(program_t* program) {
 	return ERR_NONE;
 }
 
+static 
 
 int program_add_command(program_t* program, const command_t* command) {
 	M_REQUIRE_NON_NULL(program);   
 	M_REQUIRE_NON_NULL(command);
 	
-	// Memory restrictions
-	M_REQUIRE(program->nb_lines <= MAX_COMMANDS, ERR_MEM, "Program already of max size (too many commands). Max is %d", MAX_COMMANDS);
 	
 	// Write Instr.
 	M_REQUIRE( !(command->order == WRITE && command->type == INSTRUCTION), ERR_BAD_PARAMETER, "%s",  "Illegal command: cannot write instructions" );
@@ -61,12 +65,11 @@ int program_add_command(program_t* program, const command_t* command) {
 		int write_byte_coherent = (command->data_size == sizeof(byte_t)) && (command->write_data <= BYTE_MAX_VALUE);
 		M_REQUIRE( write_word_coherent || write_byte_coherent, ERR_SIZE, "%s", "illegal command: write data is too big compared to declared datasize");
 	}
-	// TODO reading instructions doesnt have a specified size, data_size may be uninitialized.
-	/*
+	
 	if(command->type == INSTRUCTION){
 		M_REQUIRE( command->data_size == sizeof(word_t), ERR_BAD_PARAMETER, "%s", "Illegal command: Instruction data size should always be sizeof(word_t)");
 	}
-	*/
+	
 	// Address offset should be a multiple of data size
 	if(command->data_size == sizeof(word_t)){
 		//Should be word aligned
@@ -75,6 +78,12 @@ int program_add_command(program_t* program, const command_t* command) {
 	// Note : if data is in bytes, every address has valid offset
 	
 	
+	while(program->nb_lines >= program->allocated){
+		M_EXIT_IF_ERR(program_enlarge(program), 2 * program->allocated * sizeof(command_t));
+		//M_EXIT_IF_ERR(program_enlarge(program), "Error trying to reallocate to
+	}
+	
+	(program->nb_lines)++;
 	program->listing[program->nb_lines] = *command;
 	return ERR_NONE;
 }
@@ -96,7 +105,7 @@ static void print_addr(FILE* const o, command_t const * c);
 int program_print(FILE* output, const program_t* program) {
 	M_REQUIRE_NON_NULL(output);
 	M_REQUIRE_NON_NULL(program);
-	
+
 	command_t c;
 	
 	for(int i = 0; i < program->nb_lines; i++) {
@@ -247,7 +256,7 @@ static int next_word(char* str, char* read, size_t read_len, unsigned int* index
 		read_nb++;
 		(*index)++;
 	
-	} while(*index < str_len && !isspace(str[*index])); // TODO beurk mais je craque mais ca marche
+	} while(*index < str_len && !isspace(str[*index]));
 	read[read_nb] = '\0';
 	
 	return ERR_NONE;
@@ -279,9 +288,7 @@ static int parse_type_and_size(command_t * c, char* word) {
 	
 	if (word_len == 1 && word[0] == 'I') {
 		c->type = INSTRUCTION;
-		// TODO set data_size to 0 or leave empty/random?
-		// seems to be set to 0 by itself from testing (dangerous in C?)
-		// Léo : We should probably ask TAs on that one too
+		c->data_size = sizeof(word_t);
 	}
 	else if (word_len == 2 && word[0] == 'D') {
 		c->type = DATA; 
