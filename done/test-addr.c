@@ -53,7 +53,7 @@ START_TEST(init_virt_addr_test)
 	uint16_t pte_entry   = 0;
 	uint16_t page_offset = 0;
 
-    srand(time(NULL) ^ getpid() ^ pthread_self());
+    srand(time(NULL) ^ getpid() ^ (int)pthread_self());
 #pragma GCC diagnostic pop
 
 	// check ERR_NONE on correct input
@@ -86,7 +86,7 @@ START_TEST(init_virt_addr64_test)
     zero_init_var(vaddr);
     uint64_t vaddr64 = 0;
 
-    srand(time(NULL) ^ getpid() ^ pthread_self());
+    srand(time(NULL) ^ getpid() ^ (int)pthread_self());
 #pragma GCC diagnostic pop
 
 	// check ERR_NONE on correct input
@@ -161,7 +161,7 @@ START_TEST(virt_addr_t_to_virtual_page_number_test)
     zero_init_var(vaddr);
     zero_init_var(vpgnb);    
 
-    srand(time(NULL) ^ getpid() ^ pthread_self());
+    srand(time(NULL) ^ getpid() ^ (int)pthread_self());
 #pragma GCC diagnostic pop
 
     // check null caught
@@ -201,7 +201,7 @@ START_TEST(virtual_addr_t_to_uint64_t_test)
     uint64_t out = 0;
     
 
-    srand(time(NULL) ^ getpid() ^ pthread_self());
+    srand(time(NULL) ^ getpid() ^ (int)pthread_self());
 #pragma GCC diagnostic pop
 
 	// check null caught
@@ -234,7 +234,7 @@ START_TEST(init_phy_addr_test)
     uint32_t page_offset = 0;
     
 
-    srand(time(NULL) ^ getpid() ^ pthread_self());
+    srand(time(NULL) ^ getpid() ^ (int)pthread_self());
 #pragma GCC diagnostic pop
 
     // check null caught
