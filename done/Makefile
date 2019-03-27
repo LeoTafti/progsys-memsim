@@ -16,18 +16,14 @@ CPPFLAGS += -DDEBUG
 # feel free to update/modifiy this part as you wish
 
 # all those libs are required on Debian, feel free to adapt it to your box
-LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
+# LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
+LDLIBS += -lcheck -lm
 
 all:: 
 
 # ==== BASIS ===========================================================
-error.o :
-addr_mng.o: 
-
-commands.o: commands.c commands.h mem_access.h addr.h addr_mng.h error.h
-
-test-addr: addr_mng.o
-test-commands: commands.o addr_mng.o error.o 
+test-addr: test-addr.o addr_mng.o
+test-commands: test-commands.o commands.o addr_mng.o error.o 
 
 # ==== EXE =============================================================
 
