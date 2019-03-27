@@ -34,15 +34,22 @@ int program_init(program_t* program) {
 	program->listing = calloc(INIT_COMMANDS_NB, sizeof(command_t));
 	M_EXIT_IF_NULL(program->listing, 10*sizeof(command_t));
 	
-	(void)memset(program->listing, 0, sizeof(program->listing));
 	program->nb_lines = 0;
 	program->allocated = sizeof(program->listing);
 	
 	return ERR_NONE;
 }
 
-static 
+/**
+ * @brief "Destructor" for program_t: free its content.
+ * @param program the program to be filled from file.
+ * @return ERR_NONE if ok, appropriate error code otherwise.
+ */
+int program_free(program_t* program){
+	//TODO : complete
+}
 
+static int program_enlarge(program_t* program);
 int program_add_command(program_t* program, const command_t* command) {
 	M_REQUIRE_NON_NULL(program);   
 	M_REQUIRE_NON_NULL(command);
@@ -79,8 +86,7 @@ int program_add_command(program_t* program, const command_t* command) {
 	
 	
 	while(program->nb_lines >= program->allocated){
-		M_EXIT_IF_ERR(program_enlarge(program), 2 * program->allocated * sizeof(command_t));
-		//M_EXIT_IF_ERR(program_enlarge(program), "Error trying to reallocate to
+		M_EXIT_IF_ERR(program_enlarge(program), "Error trying to reallocate more memory");
 	}
 	
 	(program->nb_lines)++;
@@ -88,10 +94,37 @@ int program_add_command(program_t* program, const command_t* command) {
 	return ERR_NONE;
 }
 
+/**
+ * @brief Reallocates twice as much memory to store commands in program
+ * @param program (modified) the program which needs more memory
+ * @return ERR_NONE if successful, ERR_MEM otherwise
+ */
+static int program_enlarge(program_t* program){
+	program_t enlarged = *program;
+	enlarged.allocated *= 2;
+	if ((enlarged.allocated > SIZE_MAX / sizeof(command_t) ||
+		(enlarged.listing = realloc(enlarged.listing, enlarged.allocated * sizeof(command_t))) == NULL)) {
+		M_EXIT(ERR_MEM, "Error trying to reallocate to %zu bytes (possible overflow)", 2 * enlarged.allocated * sizeof(command_t));
+	}
+	*program = enlarged;
+	
+	return ERR_NONE;
+}
+
 int program_shrink(program_t* program) {
 	M_REQUIRE_NON_NULL(program);   
-
-	// TODO : complete (Week 6)
+	
+	program_t shrunk = *program;
+	//NOTE : Realocating DOWN can not possibly cause an overflow
+	if(program->nb_lines <= 10){
+		M_EXIT_IF_NULL(shrunk.listing = realloc(shrunk.listing, INIT_COMMANDS_NB * sizeof(command_t)), INIT_COMMANDS_NB * sizeof(command_t));
+		shrunk.allocated = INIT_COMMANDS_NB;
+	}else{
+		M_EXIT_IF_NULL(shrunk.listing = realloc(shrunk.listing, shrunk.nb_lines * sizeof(command_t)), shrunk.nb_lines * sizeof(command_t));
+		shrunk.allocated = shrunk.nb_lines;
+	}
+	
+	*program = shrunk;
 	
 	return ERR_NONE;
 }
