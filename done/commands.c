@@ -225,7 +225,6 @@ static int read_command_line(FILE* input, char* str, size_t str_len){
 	return ERR_NONE;
 }
 
-
 /**
  * @brief Strips one word from str, starting from index (incl.) Drops (leading) spaces.
  * @param str string to read one word from
