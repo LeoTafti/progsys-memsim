@@ -154,8 +154,6 @@ int program_print(FILE* output, const program_t* program) {
 		fflush(output);
 		fprintf(output, "\n");
 		fflush(output);
-		printf("hello \n");
-		
 	}
 	
 	return ERR_NONE;
@@ -215,7 +213,7 @@ int program_read(const char* filename, program_t* program){
 		
 		//Make it a command_t
 		command_t c;
-		(void)memset(&c, 0, sizeof(c));
+		(void)memset(&c, 0, sizeof(c)); 
 		
 		
 		unsigned int index = 0;
