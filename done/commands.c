@@ -70,7 +70,7 @@ int program_add_command(program_t* program, const command_t* command) {
 	// Address offset should be a multiple of data size
 	if(command->data_size == sizeof(word_t)){
 		//Should be word aligned
-		M_REQUIRE((command->vaddr.page_offset & 0x11) == 0, ERR_ADDR, "%s", "Illegal command : address should be word aligned when dealing with words");
+		M_REQUIRE((command->vaddr.page_offset & 0x3) == 0, ERR_ADDR, "%s", "Illegal command : address should be word aligned when dealing with words");
 	}
 	// Note : if data is in bytes, every address has valid offset
 	
@@ -97,21 +97,23 @@ int program_print(FILE* output, const program_t* program) {
 	M_REQUIRE_NON_NULL(output);
 	M_REQUIRE_NON_NULL(program);
 	
-	// FIXME doesnt print anything
-	// cf very weird output order :)
 	command_t c;
-	printf("foooo\n");
-
 	
 	for(int i = 0; i < program->nb_lines; i++) {
 		c = program->listing[i];
 		
 		print_order(output, &c);
+		fflush(output);
 		print_type_size(output, &c);
+		fflush(output);
 		print_data(output, &c);
+		fflush(output);
 		print_addr(output, &c);
-		fprintf(output, "\n");	
-		printf("spamspam\n");
+		fflush(output);
+		fprintf(output, "\n");
+		fflush(output);
+		printf("hello \n");
+		
 	}
 	
 	return ERR_NONE;
@@ -179,21 +181,17 @@ int program_read(const char* filename, program_t* program){
 		
 		M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
 		M_EXIT_IF_ERR(parse_order(&c, word_read), "Error trying to parse order");
-		printf("read order\n");
 		
 		M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
 		M_EXIT_IF_ERR(parse_type_and_size(&c, word_read), "Error trying to parse type and size");
-		printf("read type and size\n");
 		
 		if(c.order == WRITE){
 			M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
 			M_EXIT_IF_ERR(parse_data(&c, word_read), "Error trying to parse data");
-			printf("read data\n");
 		}
 		
 		M_EXIT_IF_ERR(next_word(command_str, word_read, 1+MAX_COMMAND_WORD_LENGTH, &index), "Error trying to parse instruction");
 		M_EXIT_IF_ERR(parse_address(&c, word_read), "Error trying to parse address");
-		printf("read address\n");
 
 		M_EXIT_IF_ERR(program_add_command(program, &c), "Error adding command to program");
 		
@@ -295,7 +293,6 @@ static int parse_type_and_size(command_t * c, char* word) {
 			c->data_size = sizeof(word_t);
 		} 
 		else {
-			printf(" the word is %c%c-\n", word[0], word[1]);
 			M_EXIT(ERR_BAD_PARAMETER, "%s %c", "Bad instruction format: command type D should be followed by either B or W but was", word[1]);	
 		}
 	}
@@ -309,7 +306,6 @@ static int parse_type_and_size(command_t * c, char* word) {
 /*unsigned long strtoul(const char *restrict str, char **restrict endptr, int base)
  * converts a string to an unsigned long
  * man strtoul for more information
- * 
  * */
 static int parse_data(command_t * c, char* word) {
 	size_t word_len = strlen(word);
@@ -333,20 +329,14 @@ static int parse_address(command_t * c, char* word) {
 	M_REQUIRE(word_len == ADDRESS_CHARS, ERR_BAD_PARAMETER, "%s", "Bad instruction format : command address should take 19 chars (\"@0x\" + 16 HEX digits)");
 	M_REQUIRE(word[0] == '@' && word[1] == '0' && word[2]== 'x', ERR_BAD_PARAMETER, "%s", "Bad instruction format : address should start with prefix '@0x'");
 	
-	//TODO : strtoul will probably fail due to the leading '@' char (?)
-	//cf doc initial unrecognized string
-	
 	char* ptr;
-	uint64_t a_int = strtoul(word, NULL, 0);
-	//uint64_t a_int = strtoul(word, &ptr, 0);
-	//TODO why do we need the final string value? read command will error if there is something after address
-	// ptr behavior very wierd here, uncomment the lines using it to see!
-	//M_REQUIRE(*ptr == '\0', ERR_ADDR, "%s %c", "Bad instruction format : address should end here but last char was ", *ptr);
+	//drops leading '@'
+	uint64_t a_int = strtoul(&word[1], &ptr, 16); // hex base
+	M_REQUIRE(*ptr == '\0', ERR_ADDR, "%s %c", "Bad instruction format : address should end here but last char was ", *ptr);
 	
 	virt_addr_t vaddr;
 	init_virt_addr64(&vaddr, a_int);
-
-	c->vaddr = vaddr; //TODO : I'm not 100% sure vaddr survives upon exiting the function... See W6 Prog. C lectures
-	
+	c->vaddr = vaddr;
+		
 	return ERR_NONE;
 }
