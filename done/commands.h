@@ -14,8 +14,6 @@
 #include "mem_access.h" // for mem_access_t
 #include "addr.h" // for virt_addr_t, word_t
  
-#define MAX_COMMANDS 100
- 
 typedef enum {
 	READ,
 	WRITE
@@ -30,9 +28,9 @@ typedef struct {
 } command_t;
 
 typedef struct{
-	command_t listing[MAX_COMMANDS];
+	command_t* listing // dynamically allocated
 	size_t nb_lines;
-	size_t allocated;
+	size_t allocated; // number of commmands
 } program_t;
 
 
@@ -87,3 +85,10 @@ int program_print(FILE* output, const program_t* program);
  * @return ERR_NONE if ok, appropriate error code otherwise.
  */
 int program_read(const char* filename, program_t* program);
+
+/**
+ * @brief "Destructor" for program_t: free its content.
+ * @param program the program to be filled from file.
+ * @return ERR_NONE if ok, appropriate error code otherwise.
+ */
+int program_free(program_t* program);

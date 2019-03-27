@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
 		printf("spamspam\n");
         (void)program_print(stdout, &pgm);
     }
+    (void)program_free(&pgm);
 
     return 0;
 }
