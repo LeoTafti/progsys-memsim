@@ -19,13 +19,11 @@ CPPFLAGS += -DDEBUG
 # LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 LDLIBS += -lcheck -lm
 
-all:: 
-
-# ==== BASIS ===========================================================
-test-addr: test-addr.o addr_mng.o
-test-commands: test-commands.o commands.o addr_mng.o error.o 
+all:: test-commands
 
 # ==== EXE =============================================================
+test-addr: test-addr.o addr_mng.o
+test-commands: test-commands.o commands.o addr_mng.o error.o 
 
 test: test-addr test-commands
 	@echo " +++++++ TESTING ADDR +++++++"
