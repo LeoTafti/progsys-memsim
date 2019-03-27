@@ -28,7 +28,7 @@ typedef struct {
 } command_t;
 
 typedef struct{
-	command_t* listing // dynamically allocated
+	command_t* listing; // dynamically allocated
 	size_t nb_lines;
 	size_t allocated; // number of commmands
 } program_t;
