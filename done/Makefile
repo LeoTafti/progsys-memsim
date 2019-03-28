@@ -1,4 +1,4 @@
-## ======================================================================
+## =====================================================================
 ## partial Makefile provided to students
 ##
 
@@ -13,18 +13,33 @@ CFLAGS = -std=c11 -Wall -Wpedantic -g
 CPPFLAGS += -DDEBUG
 
 # ----------------------------------------------------------------------
-# feel free to update/modifiy this part as you wish
 
-# all those libs are required on Debian, feel free to adapt it to your box
-# LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
-LDLIBS += -lcheck -lm
+# Paul's machine
+LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
+# Leo's machine
+# LDLIBS += -lcheck -lm
 
-all:: test-commands
+all:: memory.o error.o addr_mng.o commands.o page_walk.o test-addr.o \
+test-commands.o test-addr test-commands
 
-# ==== EXE =============================================================
+# dependencies ---------------------------------------------------------
+
+memory.o: memory.c memory.h addr.h page_walk.h addr_mng.h util.h error.h
+error.o: error.c
+
+addr_mng.o: addr_mng.c addr.h addr_mng.h error.h
+commands.o: commands.c commands.h mem_access.h addr.h addr_mng.h error.h
+page_walk.o: page_walk.c addr.h addr_mng.h error.h
+
+test-addr.o: test-addr.c tests.h error.h util.h addr.h addr_mng.h
+test-commands.o: test-commands.c error.h commands.h mem_access.h addr.h
+
+
+# exe ------------------------------------------------------------------
 test-addr: test-addr.o addr_mng.o
 test-commands: test-commands.o commands.o addr_mng.o error.o 
 
+# test-runner ----------------------------------------------------------
 test: test-addr test-commands
 	@echo " +++++++ TESTING ADDR +++++++"
 	./test-addr
@@ -32,8 +47,6 @@ test: test-addr test-commands
 	./test-commands tests/files/commands01.txt
 	./test-commands tests/files/commands02.txt
 	@echo " +++++++ DONE +++++++"
-
-
 
 # ----------------------------------------------------------------------
 # This part is to make your life easier. See handouts how to make use of it.

@@ -56,7 +56,7 @@ int program_add_command(program_t* program, command_t const * command) {
 	M_REQUIRE_NON_NULL(command);
 	
 	// Write Instr.
-	M_REQUIRE( !(command->type == INSTRUCTION && command->data_size != sizeof(word_t) ), ERR_BAD_PARAMETER, "illegal command: read should not have write data");
+	M_REQUIRE( !(command->type == INSTRUCTION && command->data_size != sizeof(word_t) ), ERR_BAD_PARAMETER, "%s", "illegal command: read should not have write data");
 	
 	// TODO : Léo – We should probably ask TA's about that (ie. what to do of unused fields).
 	// R and non-empty write data
