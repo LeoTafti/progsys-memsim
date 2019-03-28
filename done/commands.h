@@ -88,7 +88,7 @@ int program_read(const char* filename, program_t* program);
 
 /**
  * @brief "Destructor" for program_t: free its content.
- * @param program the program to be filled from file.
+ * @param program (modified) the program to free
  * @return ERR_NONE if ok, appropriate error code otherwise.
  */
 int program_free(program_t* program);

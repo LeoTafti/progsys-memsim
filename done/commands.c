@@ -38,13 +38,16 @@ int program_init(program_t * program) {
 	return ERR_NONE;
 }
 
-/**
- * @brief "Destructor" for program_t: free its content.
- * @param program the program to be filled from file.
- * @return ERR_NONE if ok, appropriate error code otherwise.
- */
 int program_free(program_t* program){
-	return 0;
+	M_REQUIRE_NON_NULL(program);
+	M_REQUIRE_NON_NULL(program->listing);
+	
+	free(program->listing);
+	program->listing = NULL;
+	program->nb_lines = 0;
+	program->allocated = 0;
+	
+	return ERR_NONE;
 }
 
 static int program_enlarge(program_t* program);
