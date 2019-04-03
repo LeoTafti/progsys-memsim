@@ -72,6 +72,11 @@ uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr){
 	return (virt_addr_t_to_virtual_page_number(vaddr) << PAGE_OFFSET) | vaddr->page_offset;
 }
 
+uint32_t phy_addr_t_to_uint32_t(const phy_addr_t* paddr){
+	M_REQUIRE_NON_NULL(paddr);
+	return (paddr->phy_page_num << PAGE_OFFSET) | paddr->page_offset;
+}
+
 uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr){
 	M_REQUIRE_NON_NULL(vaddr);
 	

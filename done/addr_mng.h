@@ -52,6 +52,13 @@ int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset);
 uint64_t virt_addr_t_to_uint64_t(const virt_addr_t * vaddr);
 
 /**
+ * @brief Convert phy_addr_t structure to uint32_t. It's the reciprocal of init_phy_addr().
+ * @param paddr the virtual address structure to be translated to a 32-bit pattern
+ * @return the 32-bit pattern corresponding to the physical address
+ */
+uint32_t phy_addr_t_to_uint32_t(const phy_addr_t* paddr);
+
+/**
  * @brief Extract virtual page number from virt_addr_t structure.
  * @param vaddr the virtual address structure
  * @return the virtual page number corresponding to the virtual address
