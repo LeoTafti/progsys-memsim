@@ -121,4 +121,64 @@ int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
     return ERR_NONE;
 }
 
+/**
+ * @brief Create and initialize the whole memory space from a provided
+ * (binary) file containing one single dump of the whole memory space.
+ *
+ * @param filename the name of the memory dump file to read from
+ * @param memory (modified) pointer to the begining of the memory
+ * @param mem_capacity_in_bytes (modified) total size of the created memory
+ * @return error code, *memory shall be NULL in case of error
+ *
+ */
+
+int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capacity_in_bytes){
+	FILE* mem_dump = fopen(filename, "rb");
+	
+	if(mem_dump != NULL){
+		//Determine file size
+		fseek(mem_dump, 0L, SEEK_END);
+		*mem_capacity_in_bytes = (size_t) ftell(mem_dump);
+		rewind(mem_dump);
+		
+		//Allocate memory
+		*memory = calloc(mem_capacity_in_bytes, 1);
+		
+		if(*memory != NULL){
+			//Initialize the memory from mem_dump file
+			fread(*memory, 1, mem_capacity_in_bytes, mem_dump);
+		}
+		fclose(mem_dump);
+		
+		M_EXIT_IF_NULL(*memory, mem_capacity_in_bytes);
+	}else{
+		*memory = NULL;
+		M_EXIT_ERR(ERR_IO, "%s", "Error opening file %s", filename);
+	}
+
+	return ERR_NONE;
+}
+
+
+/**
+ * @brief Create and initialize the whole memory space from a provided
+ * (metadata text) file containing an description of the memory.
+ * Its format is:
+ *  line1:           TOTAL MEMORY SIZE (size_t)
+ *  line2:           PGD PAGE FILENAME
+ *  line4:           NUMBER N OF TRANSLATION PAGES (PUD+PMD+PTE)
+ *  lines5 to (5+N): LIST OF TRANSLATION PAGES, expressed with two info per line:
+ *                       INDEX OFFSET (uint32_t in hexa) and FILENAME
+ *  remaining lines: LIST OF DATA PAGES, expressed with two info per line:
+ *                       VIRTUAL ADDRESS (uint64_t in hexa) and FILENAME
+ *
+ * @param filename the name of the memory content description file to read from
+ * @param memory (modified) pointer to the begining of the memory
+ * @param mem_capacity_in_bytes (modified) total size of the created memory
+ * @return error code, *p_memory shall be NULL in case of error
+ *
+ */
+
+int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes);
+
 

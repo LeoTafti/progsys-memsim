@@ -35,7 +35,7 @@ typedef enum addr_fmt addr_fmt_t;
  * @param filename the name of the memory dump file to read from
  * @param memory (modified) pointer to the begining of the memory
  * @param mem_capacity_in_bytes (modified) total size of the created memory
- * @return error code, *p_memory shall be NULL in case of error
+ * @return error code, *memory shall be NULL in case of error
  *
  */
 
