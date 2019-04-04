@@ -179,6 +179,59 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
  *
  */
 
-int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes);
+int page_file_read(*phy addr, *name, mem, memcap);
+int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes) {	
+	
+	FILE* f = fopen(master_filename, , "r");
+	M_REQUIRE_NON_NULL_CUSTOM_ERR(f, ERR_IO);
+	
+/*
+ *  line1:           TOTAL MEMORY SIZE (size_t)
+ *  line2:           PGD PAGE FILENAME
+ *  line4:           NUMBER N OF TRANSLATION PAGES (PUD+PMD+PTE)
+ *  lines5 to (5+N): LIST OF TRANSLATION PAGES, expressed with two info per line:
+ *                       INDEX OFFSET (uint32_t in hexa) and FILENAME
+ *  remaining lines: LIST OF DATA PAGES, expressed with two info per line:
+ *                       VIRTUAL ADDRESS (uint64_t in hexa) and FILENAME
+ */
+	//allouer tout l'espace
+	fscanf("%zu", mem_capacity_in_bytes);
+	*memory  = calloc(*mem_capacity_in_bytes, 1);
+	
+	if( *memory == NULL) return ERR_IO; // TODO manage closing file
+		
+	char* filename; // TODO max size
+	uint64_t vaddr64 = 0ul;
+	virt_addr_t vaddr;
+	phy_addr_t paddr;
+	
+	// write pgd
+	fscanf(f, "%s", filename);
+	if(init_virt_addr64(vaddr, vaddr64) != ERR_NONE) { fclose(f); return ERR_ADDR; }
+	if(page_walk(memory, vaddr, paddr) != ERR_NONE) { fclose(f); return ERR_ADDR; }
+	page_file_read( paddr, filename, *memory, *mem_capacity_in_bytes);
+	
+	int nb_pages;
+	fscanf(f, "%d", &nb_pages);
+	
+	for(int i = 0; i < nb_pages; i++) {
+		fscanf("0x%xl %s", &vaddr64, filename); // TODO test this in dummy file
+		init_virt_addr64(vaddr, vaddr64);
+		page_walk(memory, vaddr, paddr);
+		page_file_read( paddr, filename, *memory, *mem_capacity_in_bytes);
+	}
+	
+	do {
+		
+		
+		
+	} while(!feof(f))
+	
+	fclose(f);
+		
+			
+	
+	
 
-
+	}
+}

@@ -34,7 +34,7 @@ int page_walk(const void* mem_space, const virt_addr_t* vaddr, phy_addr_t* paddr
 	walker = read_page_entry(mem_space, walker, vaddr->pte_entry);
 	
 	//init phy_addr
-	init_phy_addr(paddr, walker, vaddr->page_offset);
+	M_REQUIRE(init_phy_addr(paddr, walker, vaddr->page_offset) == ERR_NONE, ERR_MEM, "%s", "page walk unsuccesful");
 	
 	return ERR_NONE;
 }
