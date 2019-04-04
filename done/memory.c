@@ -142,15 +142,18 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 		rewind(mem_dump);
 		
 		//Allocate memory
-		*memory = calloc(mem_capacity_in_bytes, 1);
+		*memory = calloc(*mem_capacity_in_bytes, 1);
 		
+		
+		size_t bytes_read;
 		if(*memory != NULL){
 			//Initialize the memory from mem_dump file
-			fread(*memory, 1, mem_capacity_in_bytes, mem_dump);
+			bytes_read = fread(*memory, 1, *mem_capacity_in_bytes, mem_dump);
 		}
 		fclose(mem_dump);
 		
 		M_EXIT_IF_NULL(*memory, mem_capacity_in_bytes);
+		M_REQUIRE(bytes_read == *mem_capacity_in_bytes, ERR_IO, "%s", "Couldn't read the whole memory dump file");
 	}else{
 		*memory = NULL;
 		M_EXIT_ERR(ERR_IO, "%s", "Error opening file %s", filename);
@@ -178,7 +181,7 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
  * @return error code, *p_memory shall be NULL in case of error
  *
  */
-
+ 
 int page_file_read(*phy addr, *name, mem, memcap);
 int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes) {	
 	
@@ -228,10 +231,47 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	} while(!feof(f))
 	
 	fclose(f);
-		
-			
-	
-	
 
 	}
+
+/**
+ * @brief Read page file content and writes it in memory at given physical address
+ * 	(mem_init_from_description auxillary function)
+ * 
+ * @param phy_addr physical address in memory where to write the page data
+ * @param page_filename the file name of the page data file
+ * @param memory memory pointer to the beginning of memory
+ * @param mem_capacity_in_bytes total size of the memory
+ * 
+ * @return ERR_NONE if no error, ERR_MEM if invalid addr or size, ERR_IO if couldn't open file
+ */
+static int page_file_read(
+	const phy_addr_t* phy_addr,
+	const char* page_filename,
+	void* const memory,
+	const size_t mem_capacity_in_bytes){
+		
+	FILE* page_file = fopen(page_filename, "rb");
+	M_REQUIRE_NON_NULL_CUSTOM_ERR(page_file, ERR_IO);
+	
+	//Determine page file size
+	fseek(page_file, 0L, SEEK_END);
+	size_t page_file_size = ftell(page_file);
+	rewind(page_file);
+	
+	size_t bytes_read;
+	uint32_t phy_addr_32b = phy_addr_t_to_uint32_t(phy_addr);
+	//Check that it fits in allocated memory from given address
+	if(phy_addr_32b + page_file_size <= mem_capacity_in_bytes){
+		//Read the page_file and write it in memory
+		bytes_read = fread(&(memory[phy_addr_32b]), 1, page_file_size, page_file);
+	}else{
+		fclose(page_file);
+		M_EXIT_ERR(ERR_MEM, "%s", "Not enough space to store the whole page file in memory from given physical address");
+	}
+	
+	fclose(page_file);
+	M_REQUIRE(bytes_read == page_file_size, ERR_IO, "%s", "Couldn't read the whole page file");
+	
+	return ERR_NONE;
 }
