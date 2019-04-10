@@ -154,7 +154,7 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 		}
 		fclose(mem_dump);
 		
-		M_EXIT_IF_NULL(*memory, mem_capacity_in_bytes);
+		M_EXIT_IF_NULL(*memory, *mem_capacity_in_bytes);
 		M_REQUIRE(bytes_read == *mem_capacity_in_bytes, ERR_IO, "%s", "Couldn't read the whole memory dump file");
 	}else{
 		*memory = NULL;
@@ -242,7 +242,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	fscanf(f, "%d", &nb_pages);
 	
 	for(int i = 0; i < nb_pages; i++) {
-		fscanf(f, "0x%llx %s", &vaddr64, filename);
+		fscanf(f, "0x%lx %s", &vaddr64, filename);
 		if((err = virt_uint_64_to_phy_addr(memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }
 		if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
 	}
@@ -250,7 +250,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	char newline[MAX_LINE_LENGTH+1];
 	// fgets returns null on eof or error
 	while(fgets(newline, MAX_LINE_LENGTH, f) != NULL) { 
-		fscanf(f, "0x%llx %s", &vaddr64, filename);	
+		fscanf(f, "0x%lx %s", &vaddr64, filename);	
 		if((err = virt_uint_64_to_phy_addr(memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }	
 		if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
 	}
@@ -286,7 +286,7 @@ static int page_file_read(
 	//Check that it fits in allocated memory from given address
 	if(phy_addr_32b + page_file_size <= mem_capacity_in_bytes){
 		//Read the page_file and write it in memory
-		bytes_read = fread(&(memory[phy_addr_32b]), 1, page_file_size, page_file);
+		bytes_read = fread(&((word_t*)memory)[phy_addr_32b], 1, page_file_size, page_file);
 	}else{
 		fclose(page_file);
 		M_EXIT_ERR(ERR_MEM, "%s", "Not enough space to store the whole page file in memory from given physical address");

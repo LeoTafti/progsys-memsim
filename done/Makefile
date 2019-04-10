@@ -33,20 +33,26 @@ page_walk.o: page_walk.c addr.h addr_mng.h error.h
 
 test-addr.o: test-addr.c tests.h error.h util.h addr.h addr_mng.h
 test-commands.o: test-commands.c error.h commands.h mem_access.h addr.h
+test-memory.o: test-memory.c error.h memory.h addr.h page_walk.h util.h \
+ addr_mng.h
 
 
 # exe ------------------------------------------------------------------
 test-addr: test-addr.o addr_mng.o
 test-commands: test-commands.o commands.o addr_mng.o error.o 
+test-memory: test-memory.o memory.o addr_mng.o page_walk.o error.o 
 
 # test-runner ----------------------------------------------------------
-test: test-addr test-commands
+test: test-addr test-commands test-memory
 	@echo " +++++++ TESTING ADDR +++++++"
 	./test-addr
 	@echo " +++++++ TESTING COMMANDS +++++++"
 	./test-commands tests/files/commands01.txt
 	./test-commands tests/files/commands02.txt
+	@echo " +++++++ TESTING MEM +++++++"
+	./tests/06.basic.sh
 	@echo " +++++++ DONE +++++++"
+	
 
 # ----------------------------------------------------------------------
 # This part is to make your life easier. See handouts how to make use of it.
