@@ -10,17 +10,18 @@
 #define __USE_MINGW_ANSI_STDIO 1
 #endif
 
-#include <stdio.h>  // for TODO
+#include <stdio.h>  // for FILE
 #include <stdlib.h> // for strtoul
-#include <stdint.h> // for TODO
+#include <stdint.h> // for size_t
 #include <string.h> // for memset()
 #include <inttypes.h> // for SCNx macros
-#include <assert.h> // for TODO
+#include <assert.h>
 
 #include "memory.h"
 #include "page_walk.h"
 #include "addr_mng.h"
 #include "util.h" // for SIZE_T_FMT
+#include "addr.h" // for virt_addr_t and phy_addr_t
 #include "error.h"
 
 // ======================================================================
@@ -183,10 +184,15 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
  *
  */
  #define MAX_CHARS 128
+ #define MAX_LINE_LENGTH MAX_CHARS+18
 static int page_file_read( const phy_addr_t* phy_addr,
 						   const char* page_filename,
 						   void* const memory,
 						   const size_t mem_capacity_in_bytes);
+						   
+static int virt_uint_64_to_phy_addr(void * const memory,
+									const uint64_t vaddr64,
+									phy_addr_t * const paddr);
 						   
 int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes) {	
 	
@@ -203,53 +209,59 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
  *                       VIRTUAL ADDRESS (uint64_t in hexa) and FILENAME
  */
 	//allocate all space
-	fscanf("%zu", mem_capacity_in_bytes);
+	fscanf(f, "%zu", mem_capacity_in_bytes);
 	*memory  = calloc(*mem_capacity_in_bytes, 1);
 	
-	if( *memory == NULL) return ERR_IO; // TODO manage closing file
+	if(*memory == NULL) { fclose(f); return ERR_MEM; }
 		
 	char filename[MAX_CHARS]; // TODO max size??
 	uint64_t vaddr64 = 0ul;
-	virt_addr_t vaddr;
 	phy_addr_t paddr;
 	
 	// from now on we must check for all any returned error to close the file ...
-	// TODO paul : ... before exiting (but page_file_read may exit by itself... this is a nightmare)
 	
 	// TODO moduler init virt + pagewalk + pagefileread either:
 	// in page file read itself 
 	// or in a second function 'vaddr64 to phy_addr (but we cant put it in addr_mng because of pagewalk)
 	
+	error_code err = ERR_NONE;
 	// write pgd
 	fscanf(f, "%s", filename);
-	if(init_virt_addr64(&vaddr, vaddr64) != ERR_NONE) { fclose(f); return ERR_ADDR; }
-	if(page_walk(memory, &vaddr, &paddr) != ERR_NONE) { fclose(f); return ERR_MEM; }
-	if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) {	fclose(f); return ERR_IO;}
+	if((err = virt_uint_64_to_phy_addr(memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }
+	if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
 	
 	int nb_pages;
 	fscanf(f, "%d", &nb_pages);
 	
 	for(int i = 0; i < nb_pages; i++) {
-		fscanf("0x%xl %s", &vaddr64, filename);
-		if(init_virt_addr64(&vaddr, vaddr64) != ERR_NONE) { fclose(f); return ERR_ADDR; };
-		if(page_walk(memory, &vaddr, &paddr) != ERR_NONE) { fclose(f); return ERR_MEM; }
+		fscanf(f, "0x%llx %s", &vaddr64, filename);
+		if((err = virt_uint_64_to_phy_addr(memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }
 		if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
 	}
 	
-	char* newline;
+	char newline[MAX_LINE_LENGTH+1];
 	// fgets returns null on eof or error
-	while( fgets(newline, MAX_CHARS, f) != NULL ) { 
+	while(fgets(newline, MAX_LINE_LENGTH, f) != NULL) { 
 		
-		fscanf("0x%xl %s", &vaddr64, filename);	
-		if(init_virt_addr64(&vaddr, vaddr64) != ERR_NONE) { fclose(f); return ERR_ADDR; }
-		if(page_walk(memory, &vaddr, &paddr) != ERR_NONE) { fclose(f); return ERR_MEM; }			
-		if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) {	fclose(f); return ERR_IO;}
-			
+		fscanf(f, "0x%llx %s", &vaddr64, filename);	
+		if((err = virt_uint_64_to_phy_addr(memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }	
+		if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
 	}
 	
 	fclose(f);
+	return ERR_NONE;
+}
 
-	}
+/**
+ * 
+ */
+static int virt_uint_64_to_phy_addr(void * const memory, const uint64_t vaddr64, phy_addr_t * const paddr){
+	virt_addr_t vaddr;
+	if(init_virt_addr64(&vaddr, vaddr64) != ERR_NONE) { return ERR_ADDR; }
+	if(page_walk(memory, &vaddr, paddr) != ERR_NONE) { return ERR_MEM; }
+	
+	return ERR_NONE;
+}
 
 /**
  * @brief Read page file content and writes it in memory at given physical address
