@@ -190,7 +190,14 @@ static int page_file_read( const phy_addr_t* phy_addr,
 						   const char* page_filename,
 						   void* const memory,
 						   const size_t mem_capacity_in_bytes);
-						   
+
+/**
+ * @brief Convert a virtual address (given as a uint_64_t) to a physical address, using page_walk
+ * @param memory to lookup the mapping
+ * @param vaddr64 the virtual address to convert
+ * @param paddr (modified) the physical address after conversion
+ * @return ERR_NONE if successful, appropriate error code otherwise
+ */		   
 static int virt_uint_64_to_phy_addr(void * const memory,
 									const uint64_t vaddr64,
 									phy_addr_t * const paddr);
@@ -252,13 +259,6 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	return ERR_NONE;
 }
 
-/**
- * @brief Convert a virtual address (given as a uint_64_t) to a physical address, using page_walk
- * @param memory to lookup the mapping
- * @param vaddr64 the virtual address to convert
- * @param paddr (modified) the physical address after conversion
- * @return ERR_NONE if successful, appropriate error code otherwise
- */
 static int virt_uint_64_to_phy_addr(void * const memory, const uint64_t vaddr64, phy_addr_t * const paddr){
 	virt_addr_t vaddr;
 	if(init_virt_addr64(&vaddr, vaddr64) != ERR_NONE) { return ERR_ADDR; }
@@ -267,17 +267,6 @@ static int virt_uint_64_to_phy_addr(void * const memory, const uint64_t vaddr64,
 	return ERR_NONE;
 }
 
-/**
- * @brief Read page file content and writes it in memory at given physical address
- * 	(mem_init_from_description auxillary function)
- * 
- * @param phy_addr physical address in memory where to write the page data
- * @param page_filename the file name of the page data file
- * @param memory memory pointer to the beginning of memory
- * @param mem_capacity_in_bytes total size of the memory
- * 
- * @return ERR_NONE if no error, ERR_MEM if invalid addr or size, ERR_IO if couldn't open file
- */
 static int page_file_read(
 	const phy_addr_t* phy_addr,
 	const char* page_filename,
