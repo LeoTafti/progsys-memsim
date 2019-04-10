@@ -253,7 +253,11 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 }
 
 /**
- * 
+ * @brief Convert a virtual address (given as a uint_64_t) to a physical address, using page_walk
+ * @param memory to lookup the mapping
+ * @param vaddr64 the virtual address to convert
+ * @param paddr (modified) the physical address after conversion
+ * @return ERR_NONE if successful, appropriate error code otherwise
  */
 static int virt_uint_64_to_phy_addr(void * const memory, const uint64_t vaddr64, phy_addr_t * const paddr){
 	virt_addr_t vaddr;
