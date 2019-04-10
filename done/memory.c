@@ -182,7 +182,7 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
  * @return error code, *p_memory shall be NULL in case of error
  *
  */
- #define MAX_CHARS 128
+ #define MAX_FILENAME_SIZE 128
 static int page_file_read( const phy_addr_t* phy_addr,
 						   const char* page_filename,
 						   void* const memory,
@@ -206,9 +206,9 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	fscanf("%zu", mem_capacity_in_bytes);
 	*memory  = calloc(*mem_capacity_in_bytes, 1);
 	
-	if( *memory == NULL) return ERR_IO; // TODO manage closing file
+	M_REQUIRE_NON_NULL_CUSTOM_ERR(*memory, ERR_IO); // TODO manage closing file
 		
-	char filename[MAX_CHARS]; // TODO max size??
+	char filename[MAX_FILENAME_SIZE]; // TODO max size??
 	uint64_t vaddr64 = 0ul;
 	virt_addr_t vaddr;
 	phy_addr_t paddr;
@@ -238,7 +238,7 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	
 	char* newline;
 	// fgets returns null on eof or error
-	while( fgets(newline, MAX_CHARS, f) != NULL ) { 
+	while( fgets(newline, MAX_FILENAME_SIZE, f) != NULL ) { 
 		
 		fscanf("0x%xl %s", &vaddr64, filename);	
 		if(init_virt_addr64(&vaddr, vaddr64) != ERR_NONE) { fclose(f); return ERR_ADDR; }
