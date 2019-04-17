@@ -94,8 +94,9 @@ uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr){
 int print_virtual_address(FILE* where, const virt_addr_t* vaddr){
 	unsigned int nb_char = 0;
 	if(where != NULL){
-		nb_char = fprintf(where, "PGD=0x%" PRIX16 "; PMD=0x%" PRIX16 "; PTE=0x%" PRIX16 "; offset=0x%" PRIX16,
+		nb_char = fprintf(where, "PGD=0x%" PRIX16 "; PUD=0x%" PRIX16 "; PMD=0x%" PRIX16 "; PTE=0x%" PRIX16 "; offset=0x%" PRIX16,
 			vaddr->pgd_entry,
+			vaddr->pud_entry,
 			vaddr->pmd_entry,
 			vaddr->pte_entry,
 			vaddr->page_offset);

@@ -21,7 +21,7 @@ int page_walk(const void* mem_space, const virt_addr_t* vaddr, phy_addr_t* paddr
 	//initialized to the beginning of addressed space
 	pte_t walker = PGD_START;
 
-	//get PUD page from PGD
+	//get PUD entry from PGD
 	walker = read_page_entry(mem_space, walker, vaddr->pgd_entry);
 
 	//get PMD entry from PUD
@@ -34,13 +34,14 @@ int page_walk(const void* mem_space, const virt_addr_t* vaddr, phy_addr_t* paddr
 	walker = read_page_entry(mem_space, walker, vaddr->pte_entry);
 	//init phy_add	r
 	M_REQUIRE(init_phy_addr(paddr, walker, vaddr->page_offset) == ERR_NONE, ERR_MEM, "%s", "page walk unsuccesful");
-	printf("new phyaddr: ");
-	print_physical_address(stdout, &paddr);
-	printf("\n\n");
+	//TODO:remove
+	//printf("new phyaddr: ");
+	//print_physical_address(stdout, &paddr);
+	//printf("\n\n");
 	return ERR_NONE;
 }
 
-#define BYTES_IN_WORD 4
+#define BYTES_PER_WORD 4
 /**
  * @brief read the entry index from page starting at page_start
  * @param start the beginning of the addressed memory space
@@ -48,14 +49,7 @@ int page_walk(const void* mem_space, const virt_addr_t* vaddr, phy_addr_t* paddr
  * @param index the (word) index of the entry to read
  */
 static inline pte_t read_page_entry(const pte_t * start, pte_t page_start, uint16_t index) {
-	pte_t i = 0;
-
-	//page_start is in bytes
-	i += page_start/BYTES_IN_WORD;
-
-	//index is in words, must adapt it to byte addressing
-	i += index;
-
-	//debug_print("index %x, page_start %x i %x", index, page_start, i);
-	return start[i];
+	printf("\npage_start = %lx, index = %d\n", page_start, index);
+	printf("accessing mem (pte) at index : %lx\n", page_start/BYTES_PER_WORD + index);
+	return start[page_start/BYTES_PER_WORD + index];
 }

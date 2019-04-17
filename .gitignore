@@ -2,5 +2,7 @@
 feedback-test-addr
 test-addr
 test-commands
+test-memory
+.vscode/
 .DS_Store
 

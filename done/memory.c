@@ -215,59 +215,79 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
  *  remaining lines: LIST OF DATA PAGES, expressed with two info per line:
  *                       VIRTUAL ADDRESS (uint64_t in hexa) and FILENAME
  */
-	//allocate all space
+	// Allocate the whole physical memory space (for all the pages)
 	fscanf(f, "%zu", mem_capacity_in_bytes);
 	*memory  = calloc(*mem_capacity_in_bytes, 1);
 
 	if(*memory == NULL) { fclose(f); return ERR_MEM; }
 
+	// Write the translation pages in memory
 	char filename[MAX_FILENAME_SIZE]; // TODO max size??
 	uint64_t vaddr64 = 0ul;
 	phy_addr_t paddr;
-
-	// from now on we must check for all any returned error to close the file ...
+	uint32_t paddr_32b;
 
 	error_code err = ERR_NONE;
-	// write pgd
+	
+	// PGD
 	fscanf(f, "%s", filename);
-  err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr);
-  if( err != ERR_NONE) { fclose(f); return err;}
-	if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
+	if((err = init_phy_addr(&paddr, 0, 0)) != ERR_NONE) { fclose(f); return err; }; //TODO: magic numbers ?
+	// zero_init_var(paddr)//TODO: this line is equivalent to the above one, which one is best ?
+	if(page_file_read(&paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
+
+	//TODO: remove if my fix works
+	//err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr);
+	//if(err != ERR_NONE) { fclose(f); return err; }
+	//if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
 
 	int nb_pages;
 	fscanf(f, "%d", &nb_pages);
 
 	for(int i = 0; i < nb_pages; i++) {
-		fscanf(f, "%lx %s", &vaddr64, filename);
-		if((err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }
-    if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
+		fscanf(f, "%lx %s", &paddr_32b, filename);
+		if((err = init_phy_addr(&paddr, paddr_32b, 0)) != ERR_NONE) { fclose(f); return err; }; //TODO: magic 0 offset ?
+		if(page_file_read(&paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
+		
+		//TODO: remove if my fix works
+		//fscanf(f, "%lx %s", &vaddr64, filename);
+		//if((err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }
+    	//if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
 	}
 
 	char newline[MAX_LINE_LENGTH+1];
 	// fgets returns null on eof or error
+	//FIXME: this loops one time too much
 	while(fgets(newline, MAX_LINE_LENGTH, f) != NULL) {
 		fscanf(f, "%lx %s", &vaddr64, filename);
 		if((err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }
-		if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
+		//TODO: remove
+		if(page_file_read(&paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
 	}
 
-  printf("\n%s\n", "byebye from mem_init_from_descr");
+	//TODO:remove printf
+  	printf("\n%s\n", "byebye from mem_init_from_descr");
 	fclose(f);
 	return ERR_NONE;
 }
 
 static int virt_uint_64_to_phy_addr(void * const memory, const uint64_t vaddr64, phy_addr_t * paddr){
 	virt_addr_t vaddr;
-  printf("vaddr %lx", vaddr64);
 	if(init_virt_addr64(&vaddr, vaddr64) != ERR_NONE) { return ERR_ADDR; }
-  printf("\n");
-  print_virtual_address(stdout, &vaddr);
-  printf("\n");
+	//TODO : Virtual address (vaddr) is ok here, i checked thoroughly
+	print_virtual_address(stdout, &vaddr);
+	putchar('\n');
 	if(page_walk(memory, &vaddr, paddr) != ERR_NONE) { return ERR_MEM; }
+
+	//FIXME: I think the page_walk might be at fault... with different virt addr
+	//we get the same physical address each time, which is all 0s...
+
+	print_physical_address(stdout, paddr);
+	printf("\n\n");
 
 	return ERR_NONE;
 }
 
+//TODO: document !!!
 static int page_file_read(
 	const phy_addr_t* phy_addr,
 	const char* page_filename,
