@@ -23,19 +23,19 @@ int page_walk(const void* mem_space, const virt_addr_t* vaddr, phy_addr_t* paddr
 	
 	//get PUD page from PGD
 	walker = read_page_entry(mem_space, walker, vaddr->pgd_entry);
-	
+
 	//get PMD entry from PUD
 	walker = read_page_entry(mem_space, walker, vaddr->pud_entry);
-	
+
 	//get PTE entry from PMD
 	walker = read_page_entry(mem_space, walker, vaddr->pmd_entry);
-	
+
 	//get physical_page_number from PTE
 	walker = read_page_entry(mem_space, walker, vaddr->pte_entry);
-	
-	//init phy_addr
+
+	//init phy_add	r
 	M_REQUIRE(init_phy_addr(paddr, walker, vaddr->page_offset) == ERR_NONE, ERR_MEM, "%s", "page walk unsuccesful");
-	
+
 	return ERR_NONE;
 }
 
@@ -50,10 +50,10 @@ static inline pte_t read_page_entry(const pte_t * start, pte_t page_start, uint1
 	pte_t i = 0;
 	
 	//page_start is in bytes
-	i += page_start;
+	i += page_start/BYTES_IN_WORD;
 	
 	//index is in words, must adapt it to byte addressing
-	i += index * BYTES_IN_WORD;
-	
+	i += index;
+
 	return start[i];
 }

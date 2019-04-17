@@ -203,7 +203,7 @@ static int virt_uint_64_to_phy_addr(void * const memory,
 									phy_addr_t * const paddr);
 						   
 int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes) {	
-	
+	printf("coucou mem_init_from_descr");
 	FILE* f = fopen(master_filename, "r");
 	M_REQUIRE_NON_NULL_CUSTOM_ERR(f, ERR_IO);
 	
