@@ -136,24 +136,24 @@ int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
 
 int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capacity_in_bytes){
 	FILE* mem_dump = fopen(filename, "rb");
-	
+
 	if(mem_dump != NULL){
 		//Determine file size
 		fseek(mem_dump, 0L, SEEK_END);
 		*mem_capacity_in_bytes = (size_t) ftell(mem_dump);
 		rewind(mem_dump);
-		
+
 		//Allocate memory
 		*memory = calloc(*mem_capacity_in_bytes, 1);
-		
-		
+
+
 		size_t bytes_read;
 		if(*memory != NULL){
 			//Initialize the memory from mem_dump file
 			bytes_read = fread(*memory, 1, *mem_capacity_in_bytes, mem_dump);
 		}
 		fclose(mem_dump);
-		
+
 		M_EXIT_IF_NULL(*memory, *mem_capacity_in_bytes);
 		M_REQUIRE(bytes_read == *mem_capacity_in_bytes, ERR_IO, "%s", "Couldn't read the whole memory dump file");
 	}else{
@@ -185,7 +185,7 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
  */
  #define MAX_FILENAME_SIZE 128
  #define MAX_LINE_LENGTH MAX_FILENAME_SIZE+18
- 
+
 static int page_file_read( const phy_addr_t* phy_addr,
 						   const char* page_filename,
 						   void* const memory,
@@ -197,16 +197,15 @@ static int page_file_read( const phy_addr_t* phy_addr,
  * @param vaddr64 the virtual address to convert
  * @param paddr (modified) the physical address after conversion
  * @return ERR_NONE if successful, appropriate error code otherwise
- */		   
+ */
 static int virt_uint_64_to_phy_addr(void * const memory,
 									const uint64_t vaddr64,
 									phy_addr_t * const paddr);
-						   
-int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes) {	
-	printf("coucou mem_init_from_descr");
+
+int mem_init_from_description(const char* master_filename, void** memory, size_t* mem_capacity_in_bytes) {
 	FILE* f = fopen(master_filename, "r");
 	M_REQUIRE_NON_NULL_CUSTOM_ERR(f, ERR_IO);
-	
+
 /*
  *  line1:           TOTAL MEMORY SIZE (size_t)
  *  line2:           PGD PAGE FILENAME
@@ -219,51 +218,53 @@ int mem_init_from_description(const char* master_filename, void** memory, size_t
 	//allocate all space
 	fscanf(f, "%zu", mem_capacity_in_bytes);
 	*memory  = calloc(*mem_capacity_in_bytes, 1);
-	
+
 	if(*memory == NULL) { fclose(f); return ERR_MEM; }
-		
+
 	char filename[MAX_FILENAME_SIZE]; // TODO max size??
 	uint64_t vaddr64 = 0ul;
 	phy_addr_t paddr;
-	
+
 	// from now on we must check for all any returned error to close the file ...
-	
-	// TODO moduler init virt + pagewalk + pagefileread either:
-	// in page file read itself 
-	// or in a second function 'vaddr64 to phy_addr (but we cant put it in addr_mng because of pagewalk)
-	
+
 	error_code err = ERR_NONE;
 	// write pgd
 	fscanf(f, "%s", filename);
-	if((err = virt_uint_64_to_phy_addr(memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }
+  err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr);
+  if( err != ERR_NONE) { fclose(f); return err;}
 	if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
-	
+
 	int nb_pages;
 	fscanf(f, "%d", &nb_pages);
-	
+
 	for(int i = 0; i < nb_pages; i++) {
-		fscanf(f, "0x%lx %s", &vaddr64, filename);
-		if((err = virt_uint_64_to_phy_addr(memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }
-		if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
+		fscanf(f, "%lx %s", &vaddr64, filename);
+		if((err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }
+    if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
 	}
-	
+
 	char newline[MAX_LINE_LENGTH+1];
 	// fgets returns null on eof or error
-	while(fgets(newline, MAX_LINE_LENGTH, f) != NULL) { 
-		fscanf(f, "0x%lx %s", &vaddr64, filename);	
-		if((err = virt_uint_64_to_phy_addr(memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }	
+	while(fgets(newline, MAX_LINE_LENGTH, f) != NULL) {
+		fscanf(f, "%lx %s", &vaddr64, filename);
+		if((err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr)) != ERR_NONE) { fclose(f); return err; }
 		if(page_file_read( &paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) { fclose(f); return ERR_IO; }
 	}
-	
+
+  printf("\n%s\n", "byebye from mem_init_from_descr");
 	fclose(f);
 	return ERR_NONE;
 }
 
-static int virt_uint_64_to_phy_addr(void * const memory, const uint64_t vaddr64, phy_addr_t * const paddr){
+static int virt_uint_64_to_phy_addr(void * const memory, const uint64_t vaddr64, phy_addr_t * paddr){
 	virt_addr_t vaddr;
+  printf("vaddr %lx", vaddr64);
 	if(init_virt_addr64(&vaddr, vaddr64) != ERR_NONE) { return ERR_ADDR; }
+  printf("\n");
+  print_virtual_address(stdout, &vaddr);
+  printf("\n");
 	if(page_walk(memory, &vaddr, paddr) != ERR_NONE) { return ERR_MEM; }
-	
+
 	return ERR_NONE;
 }
 
@@ -272,15 +273,15 @@ static int page_file_read(
 	const char* page_filename,
 	void* const memory,
 	const size_t mem_capacity_in_bytes) {
-		
+
 	FILE* page_file = fopen(page_filename, "rb");
 	M_REQUIRE_NON_NULL_CUSTOM_ERR(page_file, ERR_IO);
-	
+
 	//Determine page file size
 	fseek(page_file, 0L, SEEK_END);
 	size_t page_file_size = ftell(page_file);
 	rewind(page_file);
-	
+
 	size_t bytes_read;
 	uint32_t phy_addr_32b = phy_addr_t_to_uint32_t(phy_addr);
 	//Check that it fits in allocated memory from given address
@@ -291,9 +292,9 @@ static int page_file_read(
 		fclose(page_file);
 		M_EXIT_ERR(ERR_MEM, "%s", "Not enough space to store the whole page file in memory from given physical address");
 	}
-	
+
 	fclose(page_file);
 	M_REQUIRE(bytes_read == page_file_size, ERR_IO, "%s", "Couldn't read the whole page file");
-	
+
 	return ERR_NONE;
 }

@@ -21,7 +21,7 @@ check_output_with_file() {
 
     refoutput="${ref}/$4"
     [ -f "$refoutput" ] || error "Expected output file \"$refoutput\" not found."
-    
+
     mytmp="$(new_tmp_file)"
     shift 4
     # gets stdout in case of success, stderr in case of error
@@ -44,7 +44,7 @@ check_output() {
     ref='tests/files'
     testfile="${ref}/$3"
     [ -f "$testfile" ] || error "Expected test file \"$testfile\" not found."
-    
+
     EXPECTED_OUTPUT="${8}"
 
     mytmp="$(new_tmp_file)"
@@ -69,8 +69,8 @@ check_output() {
 sep=' '
 addr=0x0
 
-printf "Test %1d (test-memory on dump  #1 addr 0x0): " $((++test))
-check_output_with_file test-memory dump memory-dump-01.mem output/memory-01-out.txt o "$sep" $addr
+#printf "Test %1d (test-memory on dump  #1 addr 0x0): " $((++test))
+#check_output_with_file test-memory dump memory-dump-01.mem output/memory-01-out.txt o "$sep" $addr
 
 printf "Test %1d (test-memory on desc. #1 addr $addr): " $((++test))
 check_output_with_file test-memory desc memory-desc-01.txt output/memory-01-out.txt o "$sep" $addr
