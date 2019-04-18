@@ -69,8 +69,8 @@ check_output() {
 sep=' '
 addr=0x0
 
-#printf "Test %1d (test-memory on dump  #1 addr 0x0): " $((++test))
-#check_output_with_file test-memory dump memory-dump-01.mem output/memory-01-out.txt o "$sep" $addr
+printf "Test %1d (test-memory on dump  #1 addr 0x0): " $((++test))
+check_output_with_file test-memory dump memory-dump-01.mem output/memory-01-out.txt o "$sep" $addr
 
 printf "Test %1d (test-memory on desc. #1 addr $addr): " $((++test))
 check_output_with_file test-memory desc memory-desc-01.txt output/memory-01-out.txt o "$sep" $addr
