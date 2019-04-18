@@ -140,11 +140,6 @@ START_TEST(init_virt_addr64_test)
 	// check null caught
 	ck_assert_bad_param(init_virt_addr64(NULL, vaddr64));
 	
-	// check not 64
-	// TODO should this error? Léo : I don't think so, it makes no real sense to do that (?)
-	//uint16_t not64 = 0x0;
-	//ck_assert_bad_param(init_virt_addr64(&vaddr, not64));
-	
 	// check non_null pointer after init
 	init_virt_addr64(&vaddr, vaddr64);
 	ck_assert_ptr_nonnull(&vaddr);
@@ -166,11 +161,6 @@ START_TEST(virt_addr_t_to_virtual_page_number_test)
 
     // check null caught
 	ck_assert_bad_param(virt_addr_t_to_virtual_page_number(NULL));
-	
-	// check ERR_NONE for correct input
-	// TODO: how to check for error if the function returns a value?
-	// (void) init_virt_addr64(&vaddr, (uint64_t) 0xC0FEE); // some arbitrary value
-	// ck_assert_err_none(virt_addr_t_to_virtual_page_number(&vaddr));
 
 	// randomized check for correctness
 	// coding this more rigorously  <=> coding the method...
@@ -228,7 +218,7 @@ START_TEST(init_phy_addr_test)
 {
     phy_addr_t pa;
     phy_addr_t pb;
-    zero_init_var(pa); // TODO what does this actually do? Léo : See util.h, it basically does what the name says it does
+    zero_init_var(pa);
     zero_init_var(pb);
     uint32_t page_begin = 0;
     uint32_t page_offset = 0;

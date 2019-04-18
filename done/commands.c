@@ -247,6 +247,13 @@ int program_read(const char* filename, program_t* program){
 	return ERR_NONE;
 }
 
+/**
+ * @brief Reads one line from the given file input
+ * @param input commands file
+ * @param str (modified) the string read
+ * @param str_len the length of the string (char array)
+ * @return the length of the string (command) read
+ */
 static int read_command_line(FILE* input, char* str, size_t str_len){
 	fgets(str, str_len, input);
 
@@ -370,6 +377,7 @@ static int parse_data(command_t * c, char const * word) {
 
 	return ERR_NONE;
 }
+
 static int parse_address(command_t * c, char const * word) {
 	size_t word_len = strlen(word);
 	M_REQUIRE(word_len == ADDRESS_CHARS, ERR_BAD_PARAMETER, "%s",

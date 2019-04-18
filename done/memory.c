@@ -227,7 +227,7 @@ int mem_init_from_description(const char* master_filename,
 	if(*memory == NULL) { fclose(f); return ERR_MEM; }
 
 	/*** WRITE THE TRANSLATION PAGES IN MEMORY ***/
-	char filename[MAX_FILENAME_SIZE]; // TODO max size??
+	char filename[MAX_FILENAME_SIZE];
 	phy_addr_t paddr;
 	uint32_t paddr_32b = 0u;
 	error_code err = ERR_NONE;
