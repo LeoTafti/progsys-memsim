@@ -20,7 +20,7 @@ LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 # LDLIBS += -lcheck -lm
 
 all:: memory.o error.o addr_mng.o commands.o page_walk.o test-addr.o \
-test-commands.o test-addr test-commands
+test-commands.o test-memory.o test-addr test-commands test-memory
 
 # dependencies ---------------------------------------------------------
 

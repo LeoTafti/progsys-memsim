@@ -21,11 +21,16 @@ int init_virt_addr(virt_addr_t * vaddr,
                    uint16_t pte_entry, uint16_t page_offset){
 
 	M_REQUIRE_NON_NULL(vaddr);
-	M_REQUIRE(pgd_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER, "PGD entry should be a 9-bit value, was %" PRIX16, pgd_entry);
-	M_REQUIRE(pud_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER, "PUD entry should be a 9-bit value, was %" PRIX16, pud_entry);
-	M_REQUIRE(pmd_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER, "PMD entry should be a 9-bit value, was %" PRIX16, pmd_entry);
-	M_REQUIRE(pte_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER, "PTE entry should be a 9-bit value, was %" PRIX16, pte_entry);
-	M_REQUIRE(page_offset <= MAX_12BIT_VALUE, ERR_BAD_PARAMETER, "Page offset should be a 12-bit value, was %" PRIX16, page_offset);
+	M_REQUIRE(pgd_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER,
+            "PGD entry should be a 9-bit value, was %" PRIX16, pgd_entry);
+	M_REQUIRE(pud_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER,
+            "PUD entry should be a 9-bit value, was %" PRIX16, pud_entry);
+	M_REQUIRE(pmd_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER,
+            "PMD entry should be a 9-bit value, was %" PRIX16, pmd_entry);
+	M_REQUIRE(pte_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER,
+            "PTE entry should be a 9-bit value, was %" PRIX16, pte_entry);
+	M_REQUIRE(page_offset <= MAX_12BIT_VALUE, ERR_BAD_PARAMETER,
+            "Page offset should be a 12-bit value, was %" PRIX16, page_offset);
 
 	vaddr->pgd_entry = pgd_entry;
 	vaddr->pud_entry = pud_entry;
@@ -59,9 +64,11 @@ int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64){
 
 int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset){
 	M_REQUIRE_NON_NULL(paddr);
-	M_REQUIRE(page_offset <= MAX_12BIT_VALUE, ERR_BAD_PARAMETER, "Page offset should be a 12-bit value, was %" PRIX32, page_offset);
-	
-	paddr->phy_page_num = page_begin >> PAGE_OFFSET; //page_begin (PAGE_OFFSET) LSbs are discarded
+	M_REQUIRE(page_offset <= MAX_12BIT_VALUE, ERR_BAD_PARAMETER,
+            "Page offset should be a 12-bit value, was %" PRIX32, page_offset);
+
+  //page_begin (PAGE_OFFSET) LSbs are discarded
+	paddr->phy_page_num = page_begin >> PAGE_OFFSET;
 	paddr->page_offset = page_offset;
 
 	return ERR_NONE;
