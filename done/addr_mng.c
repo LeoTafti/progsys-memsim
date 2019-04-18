@@ -19,41 +19,41 @@ int init_virt_addr(virt_addr_t * vaddr,
                    uint16_t pgd_entry,
                    uint16_t pud_entry, uint16_t pmd_entry,
                    uint16_t pte_entry, uint16_t page_offset){
-				
-	M_REQUIRE_NON_NULL(vaddr);	   
+
+	M_REQUIRE_NON_NULL(vaddr);
 	M_REQUIRE(pgd_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER, "PGD entry should be a 9-bit value, was %" PRIX16, pgd_entry);
 	M_REQUIRE(pud_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER, "PUD entry should be a 9-bit value, was %" PRIX16, pud_entry);
 	M_REQUIRE(pmd_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER, "PMD entry should be a 9-bit value, was %" PRIX16, pmd_entry);
 	M_REQUIRE(pte_entry  <= MAX_9BIT_VALUE, ERR_BAD_PARAMETER, "PTE entry should be a 9-bit value, was %" PRIX16, pte_entry);
 	M_REQUIRE(page_offset <= MAX_12BIT_VALUE, ERR_BAD_PARAMETER, "Page offset should be a 12-bit value, was %" PRIX16, page_offset);
-	
+
 	vaddr->pgd_entry = pgd_entry;
 	vaddr->pud_entry = pud_entry;
 	vaddr->pmd_entry = pmd_entry;
 	vaddr->pte_entry = pte_entry;
 	vaddr->page_offset = page_offset;
 	vaddr->reserved = 0; //Reserved bits are always set to 0
-	
+
 	return ERR_NONE;
 }
 
 int init_virt_addr64(virt_addr_t * vaddr, uint64_t vaddr64){
 	M_REQUIRE_NON_NULL(vaddr);
-	
+
 	uint16_t page_offset = vaddr64 & MAX_12BIT_VALUE;
-	
+
 	vaddr64 >>= PAGE_OFFSET;
 	uint16_t pte_entry = vaddr64 & MAX_9BIT_VALUE;
-	
+
 	vaddr64 >>= PTE_ENTRY;
 	uint16_t pmd_entry = vaddr64 & MAX_9BIT_VALUE;
-	
+
 	vaddr64 >>= PMD_ENTRY;
 	uint16_t pud_entry = vaddr64 & MAX_9BIT_VALUE;
-	
+
 	vaddr64 >>= PUD_ENTRY;
 	uint16_t pgd_entry = vaddr64 & MAX_9BIT_VALUE;
-	
+
 	return init_virt_addr(vaddr, pgd_entry, pud_entry, pmd_entry, pte_entry, page_offset);
 }
 
@@ -63,7 +63,7 @@ int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset){
 	
 	paddr->phy_page_num = page_begin >> PAGE_OFFSET; //page_begin (PAGE_OFFSET) LSbs are discarded
 	paddr->page_offset = page_offset;
-	
+
 	return ERR_NONE;
 }
 
@@ -79,15 +79,15 @@ uint32_t phy_addr_t_to_uint32_t(const phy_addr_t* paddr){
 
 uint64_t virt_addr_t_to_virtual_page_number(const virt_addr_t * vaddr){
 	M_REQUIRE_NON_NULL(vaddr);
-	
+
 	uint64_t vp_number = 0;
-	
+
 	//Packs x_entries fields into vp_number
 	vp_number = vp_number | vaddr->pgd_entry;
 	vp_number = (vp_number << PUD_ENTRY) | vaddr->pud_entry;
 	vp_number = (vp_number << PMD_ENTRY) | vaddr->pmd_entry;
 	vp_number = (vp_number << PTE_ENTRY) | vaddr->pte_entry;
-	
+
 	return vp_number;
 }
 
