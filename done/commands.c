@@ -23,9 +23,6 @@
 
 #define INIT_COMMANDS_NB 10
 
-//TODO : Comment static methods ?
-
-
 int program_init(program_t * program) {
 	M_REQUIRE_NON_NULL(program);
 	
@@ -57,11 +54,6 @@ int program_add_command(program_t* program, command_t const * command) {
 	
 	// Write Instr.
 	M_REQUIRE( !(command->type == INSTRUCTION && command->data_size != sizeof(word_t) ), ERR_BAD_PARAMETER, "%s", "illegal command: read should not have write data");
-	
-	// TODO : Léo – We should probably ask TA's about that (ie. what to do of unused fields).
-	// R and non-empty write data
-	// here we consider that the write_data is irrelevant and should not raise an error is set
-	// M_REQUIRE( !(command->order == WRITE && command->type == INSTRUCTION), ERR_BAD_PARAMETER, "%s",  "Illegal command: cannot write instructions" );
 	
 	if(command->order == WRITE){
 		// data size is either word or byte
@@ -343,7 +335,7 @@ static int parse_type_and_size(command_t * c, char const * word) {
 	return ERR_NONE;
 }
 
-/*unsigned long strtoul(const char *restrict str, char **restrict endptr, int base)
+/* unsigned long strtoul(const char *restrict str, char **restrict endptr, int base)
  * converts a string to an unsigned long
  * man strtoul for more information
  * */

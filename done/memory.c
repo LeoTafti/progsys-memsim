@@ -234,11 +234,9 @@ int mem_init_from_description(const char* master_filename,
 
 	// PGD
 	fscanf(f, "%s", filename);
-	if((err = init_phy_addr(&paddr, 0, 0)) != ERR_NONE) {
+	if((err = init_phy_addr(&paddr, 0, 0)) != ERR_NONE) { //PGD starts at phy addr. 0
     fclose(f); return err;
   }
-  //TODO: magic numbers ?
-	//zero_init_var(paddr)//TODO: this line is equivalent to the above one, which one is best ?
 	if(page_file_read(&paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE){
     fclose(f); return ERR_IO;
   }
@@ -251,34 +249,35 @@ int mem_init_from_description(const char* master_filename,
 	for(int i = 0; i < nb_pages; i++) {
 		fscanf(f, "%x %s", &paddr_32b, filename);
 		if((err = init_phy_addr(&paddr, paddr_32b, 0)) != ERR_NONE) {
-        fclose(f);
-        return err;
-    } //TODO: magic 0 offset ?
+        	fclose(f);
+        	return err;
+    	}
 		if(page_file_read(&paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) {
-      fclose(f);
-      return ERR_IO;
-    }
-  }
+      		fclose(f);
+     		return ERR_IO;
+    	}
+  	}
 
   /*** WRITE DATA PAGES ***/
 	char newline[MAX_LINE_LENGTH+1];
 	while(fgets(newline, MAX_LINE_LENGTH, f) != NULL) {
 		fscanf(f, "%lx %s", &vaddr64, filename);
 		if((err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr)) != ERR_NONE) {
-      fclose(f);
-      return err;
-    }
+      		fclose(f);
+      		return err;
+    	}
 		if(page_file_read(&paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE) {
-      fclose(f);
-      return ERR_IO;
-    }
+      		fclose(f);
+      		return ERR_IO;
+    	}
 	}
-
 	fclose(f);
 	return ERR_NONE;
 }
 
-/* TODO comment */
+/**
+ * @brief Translates a virtual address, given as a 64-bit value, in the corresponding physical address 
+ */
 static int virt_uint_64_to_phy_addr(void * const memory, const uint64_t vaddr64, phy_addr_t * paddr){
 	virt_addr_t vaddr;
 
@@ -288,7 +287,14 @@ static int virt_uint_64_to_phy_addr(void * const memory, const uint64_t vaddr64,
 	return ERR_NONE;
 }
 
-//TODO: document !!!
+/**
+ * @brief Reads the data from a page file and puts it in memory at given address
+ * @param phy_addr physical address in memory, where to write the page
+ * @param page_filename the file name of the page to read the data from
+ * @param memory the memory space to write the page in
+ * @param mem_capacity_in_bytes the memory capacity, to ensure the is enough space
+ * @return ERR_NONE if sucessful, appropriate error code otherwise
+ */ 
 static int page_file_read(
 	const phy_addr_t* phy_addr,
 	const char* page_filename,
