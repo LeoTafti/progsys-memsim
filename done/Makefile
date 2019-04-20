@@ -20,7 +20,8 @@ LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 # LDLIBS += -lcheck -lm
 
 all:: memory.o error.o addr_mng.o commands.o page_walk.o test-addr.o \
-test-commands.o test-memory.o test-addr test-commands test-memory
+test-commands.o test-memory.o test-list.o test-addr test-commands test-memory\
+test-list
 
 # dependencies ---------------------------------------------------------
 
@@ -30,17 +31,20 @@ error.o: error.c
 addr_mng.o: addr_mng.c addr.h addr_mng.h error.h
 commands.o: commands.c commands.h mem_access.h addr.h addr_mng.h error.h
 page_walk.o: page_walk.c addr.h addr_mng.h error.h
+list.o: list.c list.h
 
 test-addr.o: test-addr.c tests.h error.h util.h addr.h addr_mng.h
 test-commands.o: test-commands.c error.h commands.h mem_access.h addr.h
 test-memory.o: test-memory.c error.h memory.h addr.h page_walk.h util.h \
  addr_mng.h
+test-list.o: test-list.c list.h
 
 
 # exe ------------------------------------------------------------------
 test-addr: test-addr.o addr_mng.o
 test-commands: test-commands.o commands.o addr_mng.o error.o
 test-memory: test-memory.o memory.o addr_mng.o page_walk.o error.o
+test-list: test-list.o list.o error.o
 
 # test-runner ----------------------------------------------------------
 test: test-addr test-commands test-memory
@@ -51,6 +55,8 @@ test: test-addr test-commands test-memory
 	./test-commands tests/files/commands02.txt
 	@echo " +++++++ TESTING MEM +++++++"
 	./tests/06.basic.sh
+	@echo " +++++++ TESTING LIST +++++++"
+	./test-list
 	@echo " +++++++ DONE +++++++"
 
 # ----------------------------------------------------------------------
