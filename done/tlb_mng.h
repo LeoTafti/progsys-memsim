@@ -12,10 +12,13 @@
 #include "addr.h"
 #include "list.h"
 
-/* TODO WEEK 08:
- * Définir ici le type replacement_policy_t
- * (et supprimer ces quatre lignes de commentaire).
- */
+typedef node_t* (*push_f)(list_t* , const list_content_t*);
+typedef void (*move_f)(list_t* , node_t*);
+typedef struct __replacement_policy__ {
+  list_t* ll;
+  push_f push_back;
+  move_f move_back;
+} replacement_policy_t;
 
 //=========================================================================
 /**

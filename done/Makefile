@@ -19,9 +19,9 @@ LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 # Leo's machine
 # LDLIBS += -lcheck -lm
 
-all:: memory.o error.o addr_mng.o commands.o page_walk.o test-addr.o \
-test-commands.o test-memory.o test-list.o test-addr test-commands test-memory\
-test-list
+all:: memory.o error.o addr_mng.o commands.o page_walk.o list.o tlb_mng.o \
+ test-addr.o test-commands.o test-memory.o test-list.o test-tlb_simple.o \
+ test-addr test-commands test-memory test-list test-tlb_simple
 
 # dependencies ---------------------------------------------------------
 
@@ -32,12 +32,16 @@ addr_mng.o: addr_mng.c addr.h addr_mng.h error.h
 commands.o: commands.c commands.h mem_access.h addr.h addr_mng.h error.h
 page_walk.o: page_walk.c addr.h addr_mng.h error.h
 list.o: list.c list.h
+tlb_mng.o: tlb_mng.c tlb.h addr.h tlb_mng.h list.h addr_mng.h page_walk.h \
+ error.h
 
 test-addr.o: test-addr.c tests.h error.h util.h addr.h addr_mng.h
 test-commands.o: test-commands.c error.h commands.h mem_access.h addr.h
 test-memory.o: test-memory.c error.h memory.h addr.h page_walk.h util.h \
  addr_mng.h
 test-list.o: test-list.c list.h
+test-tlb_simple.o: test-tlb_simple.c error.h util.h addr_mng.h addr.h \
+ commands.h mem_access.h memory.h list.h tlb.h tlb_mng.h
 
 
 # exe ------------------------------------------------------------------
@@ -45,9 +49,11 @@ test-addr: test-addr.o addr_mng.o
 test-commands: test-commands.o commands.o addr_mng.o error.o
 test-memory: test-memory.o memory.o addr_mng.o page_walk.o error.o
 test-list: test-list.o list.o error.o
+test-tlb_simple: test-tlb_simple.o list.o error.o addr_mng.o page_walk.o commands.o \
+ memory.o tlb_mng.o
 
 # test-runner ----------------------------------------------------------
-test: test-addr test-commands test-memory
+test: test-addr test-commands test-memory test-list test-tlb_simple
 	@echo " +++++++ TESTING ADDR +++++++"
 	./test-addr
 	@echo " +++++++ TESTING COMMANDS +++++++"
@@ -57,6 +63,8 @@ test: test-addr test-commands test-memory
 	./tests/06.basic.sh
 	@echo " +++++++ TESTING LIST +++++++"
 	./test-list
+	@echo "++++++++TESTING TLB++++++++"
+	./tests/08.basic.sh
 	@echo " +++++++ DONE +++++++"
 
 # ----------------------------------------------------------------------

@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
             fprintf(f_out, "\n\n");
             if (hit) fprintf(f_out, "HIT...\n\n");
             else fprintf(f_out, "MISS...\n\n");
-
+            
             for (size_t tlb_line_index = 0; tlb_line_index < TLB_LINES; tlb_line_index++) {
                 fprintf(f_out, "%d; %"PRIx64"; %05X;\n",
                         tlb[tlb_line_index].v,
@@ -115,5 +115,3 @@ int main(int argc, char* argv[])
 
     return EXIT_SUCCESS;
 }
-
-
