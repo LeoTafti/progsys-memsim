@@ -12,6 +12,12 @@
 #include "mem_access.h"
 #include "addr.h"
 
+#define HIT 1
+#define MISS 0
+
+#define VALID 1
+#define INVALID 0
+
 //=========================================================================
 /**
  * @brief Clean a TLB (invalidate, reset...).

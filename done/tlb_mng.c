@@ -17,7 +17,7 @@
 int tlb_flush(tlb_entry_t * tlb) {
   M_REQUIRE_NON_NULL(tlb);
   for(size_t i = 0; i < TLB_LINES; i++) {
-    tlb[i].v = 0;
+    tlb[i].v = INVALID;
     tlb[i].tag = 0;
     tlb[i].phy_page_num = 0;
   }
@@ -41,7 +41,7 @@ int tlb_hit(const virt_addr_t * vaddr,
   //int hit = 0       //TODO : Clearer to do the assignement at the end
 
   for_all_nodes_reverse(n, replacement_policy->ll) {
-      if(tlb[n->value].tag == tag && tlb[n->value].v == 1) { //TODO: Léo – v is 1 if valid, but 1 == false so we need the explicit equality check
+      if(tlb[n->value].tag == tag && tlb[n->value].v == VALID) { //TODO: Léo – v is 1 if valid, but 1 == false so we need the explicit equality check
         //line_index = n->value;
         //hit = 1;
         m = n;
@@ -95,7 +95,7 @@ int tlb_entry_init( const virt_addr_t * vaddr,
   M_REQUIRE_NON_NULL(paddr);
   M_REQUIRE_NON_NULL(tlb_entry);
 
-  tlb_entry->v = 1;
+  tlb_entry->v = VALID;
   tlb_entry->tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
   tlb_entry->phy_page_num = paddr->phy_page_num;
 
