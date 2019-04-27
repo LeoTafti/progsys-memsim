@@ -26,8 +26,8 @@ void init_list(list_t* this) {
 }
 
 /* make a singleton list from an empty list given a node */
-void static singleton(list_t* this, node_t* n) {
-  // if(is_empty_list(this))
+static void singleton(list_t* this, node_t* n) {
+  // if(is_empty_list(this)) //TODO : Léo – I think we can remove that, or replace it with an assert, since it is a static function
   this->front = n;
   this->back = n;
   n->previous = NULL;
@@ -35,93 +35,102 @@ void static singleton(list_t* this, node_t* n) {
 }
 
 void clear_list(list_t* this) {
-  if(this != NULL) {
-    if(!is_empty_list(this)) {
+  if(this != NULL && !is_empty_list(this)) {
+    //FIXME: Léo – I don't see how this could work ? You seem to free pointers to prev / next, but shouldn't we
+    //free nodes instead (that is what we actually malloc for)
+    //+ why do all but last ? I would simply do : (uncomment to get the proper syntax highlighting)
+    
+    // //Free all nodes
+    // for_all_nodes(n, this){
+    //   free(n);
+    // }
+    // //Make it an empty list
+    // init_list(this);
+
     //remove all but last
     for_all_nodes(n, this) {
       if(n->previous!=NULL) free(n->previous);
     }
     free(this->back);
     }
-  }
   // the list itself must be freed at higher level
+  //TODO: I'm not sure about that either, but maybe ?
 }
 
 node_t* push_back(list_t* this, const list_content_t* value) {
-  if(this != NULL && value != NULL) {
-
-  node_t* n = malloc(sizeof(node_t));
-  if(n != NULL) {
-    n->value = *value;
-    if(is_empty_list(this)) singleton(this, n);
-    else {
-      n->previous = this->back;
-      n->next = NULL;
-      this->back->next = n;
-      this->back = n;
+  if(this != NULL && value != NULL) { //TODO: Can value (ie. a uint32) really be NULL ?
+    node_t* n = malloc(sizeof(node_t));
+    if(n != NULL) {
+      n->value = *value;
+      if(is_empty_list(this)) singleton(this, n);
+      else {
+        n->previous = this->back;
+        n->next = NULL;
+        this->back->next = n;
+        this->back = n;
+      }
     }
-  }
-  return n;
+    return n;
   }
   return 0; // TODO warning if we return an error code but this is not satisfactory
+            // Léo : yes seems bad, maybe we don't have to check for list beeing NULL ? Ask TAs
 }
 
 node_t* push_front(list_t* this, const list_content_t* value) {
   if(this != NULL && value != NULL) {
-
-  node_t* n = malloc(sizeof(node_t));
-  if(n != NULL) {
-    n->value = *value;
-    if(is_empty_list(this)) singleton(this, n);
-    else {
-      n->previous = NULL;
-      n->next = this->front;
-      this->front->previous = n;
-      this->front = n;
+    node_t* n = malloc(sizeof(node_t));
+    if(n != NULL) {
+      n->value = *value;
+      if(is_empty_list(this)) singleton(this, n);
+      else {
+        n->previous = NULL;
+        n->next = this->front;
+        this->front->previous = n;
+        this->front = n;
+      }
     }
+    return n;
   }
-  return n;
-  }
-  return 0;
+  return 0; //TODO : same remark as push_back
 }
 
 void pop_back(list_t* this) {
-  if(this != NULL) {
-  if(!is_empty_list(this)) {
+  if(this != NULL && !is_empty_list(this)) {
     node_t* rm = this->back;
-    node_t* llast = this->back->previous;
+    node_t* llast = rm->previous;
 
     this->back = llast;
-    if( llast != NULL) llast->next = NULL; // if not a singleton
-
     free(rm);
-  }
+
+    if(llast != NULL){  // if not a singleton
+      llast->next = NULL;
+    }
   }
 }
 
 void pop_front(list_t* this) {
-  if(this != NULL) {
-  if(!is_empty_list(this)) {
+  if(this != NULL && !is_empty_list(this)) {
     node_t* rm = this->front;
-    node_t* ffirst = this->front->next;
+    node_t* ffirst = rm->next;
 
     this->front = ffirst;
-    if(ffirst != NULL) ffirst->previous = NULL; // if not a singleton
-
     free(rm);
-  }
+
+    if(ffirst != NULL){ // if not a singleton
+      ffirst->previous = NULL;
+    }
   }
 }
 
 void move_back(list_t* this, node_t* node) {
-  // TODO check contains??
+  // TODO check contains? – Ask TA's
   if(this != NULL && node != NULL) {
     if(node->next != NULL) { // do nothing if it is already back
-    node->previous != NULL ? (node->previous->next = node->next) :
-                             (this->front = node->next);
-    node->next->previous = node->previous;
+      //TODO : Léo – I don't understand what this does :/
+      node->previous != NULL ? (node->previous->next = node->next) : (this->front = node->next);
+      node->next->previous = node->previous;
 
-    node = push_back(this, &(node->value));
+      node = push_back(this, &(node->value));
     }
   }
 }
@@ -135,11 +144,16 @@ int print_list(FILE* stream, const list_t* this) {
   fputc('(', stream);
   for_all_nodes(n, this){
     count += print_node(stream, n->value);
-    if(n->next != NULL) count += fprintf(stream, ", ");
+    if(n->next != NULL){
+      count += fprintf(stream, ", "); //TODO : do we want to count the ' ' as 1 char ?
+    }
   }
   fputc(')', stream);
-  //will miss a '\n'
+  //will miss a '\n' //TODO : what does that mean ? is it a problem ?
   return count+2; // 2 for parenthesis
+
+  //TODO : Léo – Are we sure that we must count the '(', and ')' and ', ' ? (maybe ask the TA's ?)
+  //Same remarks apply to next function
 }
 
 int print_reverse_list(FILE* stream, const list_t* this){
@@ -151,7 +165,9 @@ int print_reverse_list(FILE* stream, const list_t* this){
   fputc('(', stream);
   for_all_nodes_reverse(n, this){
     count += print_node(stream, n->value);
-    if(n->previous != NULL) count += fprintf(stream, ", ");
+    if(n->previous != NULL){
+      count += fprintf(stream, ", ");
+    }
   }
   fputc(')', stream);
   //this will miss a '\n'

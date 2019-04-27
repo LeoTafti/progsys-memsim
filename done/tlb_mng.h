@@ -12,6 +12,9 @@
 #include "addr.h"
 #include "list.h"
 
+#define HIT 1
+#define MISS 0
+
 typedef node_t* (*push_f)(list_t* , const list_content_t*);
 typedef void (*move_f)(list_t* , node_t*);
 typedef struct __replacement_policy__ {
