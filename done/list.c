@@ -27,7 +27,6 @@ void init_list(list_t* this) {
 
 /* make a singleton list from an empty list given a node */
 static void singleton(list_t* this, node_t* n) {
-  // if(is_empty_list(this)) //TODO : Léo – I think we can remove that, or replace it with an assert, since it is a static function
   this->front = n;
   this->back = n;
   n->previous = NULL;
@@ -39,13 +38,15 @@ void clear_list(list_t* this) {
     //FIXME: Léo – I don't see how this could work ? You seem to free pointers to prev / next, but shouldn't we
     //free nodes instead (that is what we actually malloc for)
     //+ why do all but last ? I would simply do : (uncomment to get the proper syntax highlighting)
-    
+
     // //Free all nodes
     // for_all_nodes(n, this){
     //   free(n);
     // }
     // //Make it an empty list
-    // init_list(this);
+
+    // FIXME: Paul - how will your 'for loop' point to next once you free where you are standing on?
+    // prev / next are nodes (pointers)
 
     //remove all but last
     for_all_nodes(n, this) {
@@ -53,12 +54,13 @@ void clear_list(list_t* this) {
     }
     free(this->back);
     }
-  // the list itself must be freed at higher level
-  //TODO: I'm not sure about that either, but maybe ?
+    init_list(this);
 }
 
 node_t* push_back(list_t* this, const list_content_t* value) {
-  if(this != NULL && value != NULL) { //TODO: Can value (ie. a uint32) really be NULL ?
+  if(this != NULL && value != NULL) {
+  //TODO: Can value (ie. a uint32) really be NULL ?
+  // - this is a pointer to a value so yes
     node_t* n = malloc(sizeof(node_t));
     if(n != NULL) {
       n->value = *value;
@@ -125,11 +127,14 @@ void pop_front(list_t* this) {
 void move_back(list_t* this, node_t* node) {
   // TODO check contains? – Ask TA's
   if(this != NULL && node != NULL) {
-    if(node->next != NULL) { // do nothing if it is already back
+    if(node->next != NULL) { // nothing to be done if it is already at the back
       //TODO : Léo – I don't understand what this does :/
+      // L <-> n <-> R ===> L <-> R <-> n
+      // if L!=NIL make L -> R else make 'front' -> R
       node->previous != NULL ? (node->previous->next = node->next) : (this->front = node->next);
+      // make L <- R
       node->next->previous = node->previous;
-
+      // make R <-> n
       node = push_back(this, &(node->value));
     }
   }
@@ -145,15 +150,18 @@ int print_list(FILE* stream, const list_t* this) {
   for_all_nodes(n, this){
     count += print_node(stream, n->value);
     if(n->next != NULL){
-      count += fprintf(stream, ", "); //TODO : do we want to count the ' ' as 1 char ?
+      count += fprintf(stream, ", ");
     }
   }
   fputc(')', stream);
-  //will miss a '\n' //TODO : what does that mean ? is it a problem ?
+  //will miss a '\n'
+  //TODO : what does that mean ? is it a problem ?
+  //doesnt seem so passes feedback (remove)
   return count+2; // 2 for parenthesis
 
   //TODO : Léo – Are we sure that we must count the '(', and ')' and ', ' ? (maybe ask the TA's ?)
-  //Same remarks apply to next function
+  // seems so it passes feedback tests
+  // Same remarks apply to next function
 }
 
 int print_reverse_list(FILE* stream, const list_t* this){

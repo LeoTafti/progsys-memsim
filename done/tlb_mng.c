@@ -28,37 +28,25 @@ int tlb_hit(const virt_addr_t * vaddr,
             phy_addr_t * paddr,
             const tlb_entry_t * tlb,
             replacement_policy_t * replacement_policy){
-  M_REQUIRE_NON_NULL(vaddr);
+  /*M_REQUIRE_NON_NULL(vaddr);
   M_REQUIRE_NON_NULL(paddr);
   M_REQUIRE_NON_NULL(tlb);
-  M_REQUIRE_NON_NULL(replacement_policy);
+  M_REQUIRE_NON_NULL(replacement_policy);*/
 
   //FIXME: Léo – We cannot use M_REQUIRE_NON_NULL because here, we need to return 0 if somehting went wrong
 
   uint64_t tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
-  //uint32_t line_index = 0; //TODO: Léo – We can remove that, it is redundant if we also keep the node when found
   node_t* m = NULL;
-  //int hit = 0       //TODO : Clearer to do the assignement at the end
 
   for_all_nodes_reverse(n, replacement_policy->ll) {
-      if(tlb[n->value].tag == tag && tlb[n->value].v == VALID) { //TODO: Léo – v is 1 if valid, but 1 == false so we need the explicit equality check
-        //line_index = n->value;
-        //hit = 1;
+      if(tlb[n->value].tag == tag && tlb[n->value].v == VALID) {
+        //TODO: Léo – v is 1 if valid, but 1 == false so we need the explicit equality check
+        // if(1) printf("helloworld"); il était tard
         m = n;
         break;
       }
   }
 
-  // TODO a while may be more repsentative of what we are doing
-  // while version is currently not functional
-  /*node_t* n = replacement_policy->ll->back;
-  while( (tlb[line_index].tag != tag || !tlb[line_index].v ) && n->previous != NULL){
-        n = n->previous;
-        line_index = n->value;
-  }
-  if((tlb[line_index].tag != tag || !tlb[line_index].v ) && n->previous != NULL)
-    hit=1;
-  */
   int hit_or_miss;
   if(m != NULL) {
     hit_or_miss = HIT;
@@ -70,9 +58,7 @@ int tlb_hit(const virt_addr_t * vaddr,
   }else{
     hit_or_miss = MISS;
   }
-
   return hit_or_miss;
-
 }
 
 int tlb_insert( uint32_t line_index,
@@ -116,7 +102,7 @@ int tlb_search( const void * mem_space,
   M_REQUIRE_NON_NULL(replacement_policy);
 
   *hit_or_miss = tlb_hit(vaddr, paddr, tlb, replacement_policy);
-  
+
   if(*hit_or_miss == MISS) {
 
       //translate vaddr
