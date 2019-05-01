@@ -33,6 +33,10 @@ int tlb_hit(const virt_addr_t * vaddr,
     return MISS;
   }
 
+  //TODO: vaddr is reserved ++ tag ++ offset.
+  //This only works if  reserved bits are all 0 (masking tag bits would be more robust)
+  //But maybe we can assume they are ?
+
   uint64_t tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
   node_t* m = NULL;
 
@@ -78,6 +82,7 @@ int tlb_entry_init( const virt_addr_t * vaddr,
   M_REQUIRE_NON_NULL(tlb_entry);
 
   tlb_entry->v = VALID;
+  //TODO : same remark on reserved bits as above
   tlb_entry->tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
   tlb_entry->phy_page_num = paddr->phy_page_num;
 
@@ -96,6 +101,7 @@ int tlb_search( const void * mem_space,
   M_REQUIRE_NON_NULL(paddr);
   M_REQUIRE_NON_NULL(tlb);
   M_REQUIRE_NON_NULL(replacement_policy);
+  M_REQUIRE_NON_NULL(hit_or_miss);
 
   *hit_or_miss = tlb_hit(vaddr, paddr, tlb, replacement_policy);
 
