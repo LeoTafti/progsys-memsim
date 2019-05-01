@@ -29,7 +29,9 @@ int tlb_hit(const virt_addr_t * vaddr,
             const tlb_entry_t * tlb,
             replacement_policy_t * replacement_policy){
 
-  if(vaddr == NULL || paddr == NULL || tlb == NULL || replacement_policy == NULL) return MISS;
+  if(vaddr == NULL || paddr == NULL || tlb == NULL || replacement_policy == NULL) {
+    return MISS;
+  }
 
   uint64_t tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
   node_t* m = NULL;

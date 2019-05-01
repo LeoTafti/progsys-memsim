@@ -3,11 +3,6 @@
 #include "error.h"
 #include "addr.h"
 
-//TODO : switch case with some copy paste is a super ugly, but how can I do better
-//(since i need to cast the void* to use it...)?
-// (apparently, using unions could help but not solve the problem ?)
-
-
 /**
  * @brief Clean a TLB (invalidate, reset...).
  *
@@ -17,34 +12,28 @@
  * @return  error code
  */
 
+
+#define FLUSH(tlb_entry_type, TLB_LINES) \
+    tlb_entry_type* tlb_arr = (tlb_entry_type*)tlb; \
+    for(size_t i = 0; i < TLB_LINES; i++) { \
+        tlb_arr[i].v = INVALID; \
+        tlb_arr[i].tag = 0; \
+        tlb_arr[i].phy_page_num = 0; \
+    }
+
 int tlb_flush(void *tlb, tlb_t tlb_type){
     M_REQUIRE_NON_NULL(tlb);
 
     switch (tlb_type)
     {
     case L1_ITLB:
-        l1_itlb_entry_t* tlb_arr = (l1_itlb_entry_t*)tlb;
-        for(size_t i = 0; i < L1_ITLB_LINES; i++) {
-            tlb_arr[i].v = INVALID;
-            tlb_arr[i].tag = 0;
-            tlb_arr[i].phy_page_num = 0;
-        }
+        FLUSH(l1_itlb_entry_t, L1_ITLB_LINES);
         break;
     case L1_DTLB:
-        l1_dtlb_entry_t* tlb_arr = (l1_dtlb_entry_t*)tlb;
-        for(size_t i = 0; i < L1_DTLB_LINES; i++) {
-            tlb_arr[i].v = INVALID;
-            tlb_arr[i].tag = 0;
-            tlb_arr[i].phy_page_num = 0;
-        }
+        FLUSH(l1_dtlb_entry_t, L1_DTLB_LINES);
         break;
     case L2_TLB:
-        l2_tlb_entry_t* tlb_arr = (l2_tlb_entry_t*)tlb;
-        for(size_t i = 0; i < L2_TLB_LINES; i++) {
-            tlb_arr[i].v = INVALID;
-            tlb_arr[i].tag = 0;
-            tlb_arr[i].phy_page_num = 0;
-        }
+        FLUSH(l2_tlb_entry_t, L2_TLB_LINES);
         break;
     default:
         M_EXIT(ERR_BAD_PARAMETER, "%s", "Unrecognized TLB type");
@@ -53,6 +42,8 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
 
     return ERR_NONE;
 }
+
+#undef FLUSH
 
 //=========================================================================
 /**
@@ -68,30 +59,76 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
  * @return hit (1) or miss (0)
  */
 
+#define HIT(tlb_entry_type, TLB_LINES) \
+    uint64_t tag_and_index = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET; \
+    \
+    uint32_t tag = tag_and_index / TLB_LINES; \
+    uint8_t index = tag_and_index % TLB_LINES; \
+    \
+    tlb_entry_type* tlb_entry = ((tlb_entry_type*)tlb)[index]; \
+    \
+    if (tlb_entry->v == VALID && tlb_entry->tag == tag){ \
+        /*Entry was found in TLB*/ \
+        paddr->phy_page_num = tlb_entry->phy_page_num; \
+        paddr->page_offset = vaddr->page_offset; \
+        return HIT; \
+    }else{ \
+        return MISS; \
+    } \
+
 int tlb_hit( const virt_addr_t * vaddr,
              phy_addr_t * paddr,
              const void  * tlb,
              tlb_t tlb_type){
 
-    //TODO : implement this. But first, correct the non hierarchical version in tlb_mng.c
+    if(vaddr == NULL || paddr == NULL || tlb == NULL) {
+        return MISS;
+    }
 
     //As i did before, the following would go in the switch
 
-    uint64_t tag_and_index = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
+    // uint64_t tag_and_index = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
 
-    uint32_t tag = tag_and_index / L...TLB_LINES;
-    uint8_t index = tag_and_index % L...TLB_LINES;
+    // uint32_t tag = tag_and_index / L...TLB_LINES;
+    // uint8_t index = tag_and_index % L...TLB_LINES;
 
-    l...tlb_entry* tlb_entry = ((l...tlb_entry*)tlb)[index];
+    // l...tlb_entry* tlb_entry = ((l...tlb_entry*)tlb)[index];
 
-    if (tlb_entry->v == VALID && tlb_entry->tag == tag){
-        //Entry was found in TLB
-        paddr->phy_page_num = tlb_entry->phy_page_num;
-        paddr->page_offset = vaddr->page_offset;
-        return HIT;
-    }else{
-        return MISS;
-    }
+    // if (tlb_entry->v == VALID && tlb_entry->tag == tag){
+    //     //Entry was found in TLB
+    //     paddr->phy_page_num = tlb_entry->phy_page_num;
+    //     paddr->page_offset = vaddr->page_offset;
+    //     return HIT;
+    // }else{
+    //     return MISS;
+    // }
+
+    // if(vaddr == NULL || paddr == NULL || tlb == NULL || replacement_policy == NULL) return MISS;
+
+    // uint64_t tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
+    // node_t* m = NULL;
+
+    // for_all_nodes_reverse(n, replacement_policy->ll) {
+    //     if(tlb[n->value].tag == tag && tlb[n->value].v == VALID) {
+    //         m = n;
+    //         break;
+    //     }
+    // }
+
+    // int hit_or_miss;
+    // if(m != NULL) {
+    //     hit_or_miss = HIT;
+    //     //set paddr
+    //     paddr->phy_page_num = tlb[m->value].phy_page_num;
+    //     paddr->page_offset = vaddr->page_offset;
+    //     //update replacement policy
+    //     replacement_policy->move_back(replacement_policy->ll, m);
+    // }else{
+    //     hit_or_miss = MISS;
+    // }
+    // return hit_or_miss;
+
+    // return ERR_NONE;
 
     // switch (tlb_type)
     // {
@@ -112,6 +149,8 @@ int tlb_hit( const virt_addr_t * vaddr,
     //     break;
     // }
 }
+
+#undef HIT
 
 //=========================================================================
 /**
@@ -141,6 +180,12 @@ int tlb_insert( uint32_t line_index,
  * @return  error code
  */
 
+#define INIT(tlb_entry_type, TLB_LINES_BITS) \
+    tlb_entry_type* entry = (tlb_entry_type*)tlb_entry; \
+    entry->v = 1; \
+    entry->tag = virt_addr_t_to_uint64_t(vaddr)>>(PAGE_OFFSET+L2_TLB_LINES_BITS); \
+    entry->phy_page_num = paddr->phy_page_num;
+
 int tlb_entry_init( const virt_addr_t * vaddr,
                     const phy_addr_t * paddr,
                     void * tlb_entry,
@@ -152,22 +197,13 @@ int tlb_entry_init( const virt_addr_t * vaddr,
     switch (tlb_type)
     {
     case L1_ITLB:
-        l1_itlb_entry_t* entry = (l1_itlb_entry_t*)tlb_entry;
-        entry->v = 1;
-        entry->tag = virt_addr_t_to_uint64_t(vaddr)>>(PAGE_OFFSET+L1_ITLB_LINES_BITS);
-        entry->phy_page_num = paddr->phy_page_num;
+        INIT(l1_itlb_entry_t, L1_ITLB_LINES_BITS);
         break;
     case L1_DTLB:
-        l1_dtlb_entry_t* entry = (l1_dtlb_entry_t*)tlb_entry;
-        entry->v = 1;
-        entry->tag = virt_addr_t_to_uint64_t(vaddr)>>(PAGE_OFFSET+L1_DTLB_LINES_BITS);
-        entry->phy_page_num = paddr->phy_page_num;
+        INIT(l1_dtlb_entry_t, L1_DTLB_LINES_BITS);
         break;
     case L2_TLB:
-        l2_tlb_entry_t* entry = (l2_tlb_entry_t*)tlb_entry;
-        entry->v = 1;
-        entry->tag = virt_addr_t_to_uint64_t(vaddr)>>(PAGE_OFFSET+L2_TLB_LINES_BITS);
-        entry->phy_page_num = paddr->phy_page_num;
+        INIT(l2_tlb_entry_t, L2_TLB_LINES_BITS);
         break;
     default:
         M_EXIT(ERR_BAD_PARAMETER, "%s", "Unrecognized TLB type");
@@ -176,6 +212,8 @@ int tlb_entry_init( const virt_addr_t * vaddr,
 
   return ERR_NONE;
 }
+
+#undef INIT
 
 //=========================================================================
 /**
