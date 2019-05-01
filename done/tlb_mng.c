@@ -63,9 +63,7 @@ int tlb_insert( uint32_t line_index,
   M_REQUIRE_NON_NULL(tlb_entry);
   M_REQUIRE_NON_NULL(tlb);
 
-  tlb[line_index].v = tlb_entry->v;
-  tlb[line_index].tag = tlb_entry->tag;
-  tlb[line_index].phy_page_num = tlb_entry->phy_page_num;
+  tlb[line_index] = *tlb_entry;
 
   return ERR_NONE;
 }

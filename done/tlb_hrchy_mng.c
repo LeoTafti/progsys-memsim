@@ -3,6 +3,8 @@
 #include "error.h"
 #include "addr.h"
 
+
+
 /**
  * @brief Clean a TLB (invalidate, reset...).
  *
@@ -11,8 +13,6 @@
  * @param tlb_type an enum to distinguish between different TLBs
  * @return  error code
  */
-
-
 #define FLUSH(tlb_entry_type, TLB_LINES) \
     tlb_entry_type* tlb_arr = (tlb_entry_type*)tlb; \
     for(size_t i = 0; i < TLB_LINES; i++) { \
@@ -162,14 +162,37 @@ int tlb_hit( const virt_addr_t * vaddr,
  * @param tlb_type to distinguish between different TLBs
  * @return  error code
  */
+#define INSERT(tlb_entry_type, number_lines)\
+  M_REQUIRE(line_index < number_lines, ERR_BAD_PARAMETER, "%s", "wrong tlb insert");\
+  (tlb_entry_type*) tlb[line_index] = *((tlb_entry_type*)tlb_entry)\
 
 int tlb_insert( uint32_t line_index,
                 const void * tlb_entry,
                 void * tlb,
                 tlb_t tlb_type){
 
+  M_REQUIRE_NON_NULL(tlb_entry);
+  M_REQUIRE_NON_NULL(tlb);
+
+  switch (tlb_type)
+  {
+  case L1_ITLB:
+      INSERT(l1_itlb_entry_t, L1_ITLB_LINES);
+      break;
+  case L1_DTLB:
+      INSERT(l1_dtlb_entry_t, L1_DTLB_LINES);
+      break;
+  case L2_TLB:
+      INSERT(l2_tlb_entry_t, L2_TLB_LINES);
+      break;
+  default:
+      M_EXIT(ERR_BAD_PARAMETER, "%s", "Unrecognized TLB type");
+      break;
+  }
+  return ERR_NONE;
 }
 
+#undef INSERT
 //=========================================================================
 /**
  * @brief Initialize a TLB entry
