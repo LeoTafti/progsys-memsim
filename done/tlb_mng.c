@@ -28,20 +28,14 @@ int tlb_hit(const virt_addr_t * vaddr,
             phy_addr_t * paddr,
             const tlb_entry_t * tlb,
             replacement_policy_t * replacement_policy){
-  /*M_REQUIRE_NON_NULL(vaddr);
-  M_REQUIRE_NON_NULL(paddr);
-  M_REQUIRE_NON_NULL(tlb);
-  M_REQUIRE_NON_NULL(replacement_policy);*/
 
-  //FIXME: Léo – We cannot use M_REQUIRE_NON_NULL because here, we need to return 0 if somehting went wrong
+  if(vaddr == NULL || paddr == NULL || tlb == NULL || replacement_policy == NULL) return MISS;
 
   uint64_t tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
   node_t* m = NULL;
 
   for_all_nodes_reverse(n, replacement_policy->ll) {
       if(tlb[n->value].tag == tag && tlb[n->value].v == VALID) {
-        //TODO: Léo – v is 1 if valid, but 1 == false so we need the explicit equality check
-        // if(1) printf("helloworld"); il était tard
         m = n;
         break;
       }

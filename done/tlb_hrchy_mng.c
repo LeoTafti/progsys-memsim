@@ -19,7 +19,7 @@
 
 int tlb_flush(void *tlb, tlb_t tlb_type){
     M_REQUIRE_NON_NULL(tlb);
-    
+
     switch (tlb_type)
     {
     case L1_ITLB:
@@ -72,18 +72,18 @@ int tlb_hit( const virt_addr_t * vaddr,
              phy_addr_t * paddr,
              const void  * tlb,
              tlb_t tlb_type){
-    
+
     //TODO : implement this. But first, correct the non hierarchical version in tlb_mng.c
-    
+
     //As i did before, the following would go in the switch
-    
+
     uint64_t tag_and_index = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
-    
+
     uint32_t tag = tag_and_index / L...TLB_LINES;
     uint8_t index = tag_and_index % L...TLB_LINES;
 
     l...tlb_entry* tlb_entry = ((l...tlb_entry*)tlb)[index];
-    
+
     if (tlb_entry->v == VALID && tlb_entry->tag == tag){
         //Entry was found in TLB
         paddr->phy_page_num = tlb_entry->phy_page_num;
@@ -97,15 +97,15 @@ int tlb_hit( const virt_addr_t * vaddr,
     // {
     // case L1_ITLB:
     //     l1_itlb_entry_t* tlb_arr = (l1_itlb_entry_t*)tlb;
-        
+
     //     break;
     // case L1_DTLB:
     //     l1_dtlb_entry_t* tlb_arr = (l1_dtlb_entry_t*)tlb;
-        
+
     //     break;
     // case L2_TLB:
     //     l2_tlb_entry_t* tlb_arr = (l2_tlb_entry_t*)tlb;
-        
+
     //     break;
     // default:
     //     M_EXIT(ERR_BAD_PARAMETER, "%s", "Unrecognized TLB type");
@@ -148,7 +148,7 @@ int tlb_entry_init( const virt_addr_t * vaddr,
     M_REQUIRE_NON_NULL(vaddr);
     M_REQUIRE_NON_NULL(paddr);
     M_REQUIRE_NON_NULL(tlb_entry);
-    
+
     switch (tlb_type)
     {
     case L1_ITLB:

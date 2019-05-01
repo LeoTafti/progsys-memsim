@@ -106,7 +106,6 @@ int program_shrink(program_t* program) {
 	M_REQUIRE_NON_NULL(program);
 
 	program_t shrunk = *program;
-	//NOTE : Realocating DOWN cannot possibly cause an overflow
 	if(program->nb_lines <= 10){
 		M_EXIT_IF_NULL(shrunk.listing = realloc(shrunk.listing, INIT_COMMANDS_NB * sizeof(command_t)),
  									 INIT_COMMANDS_NB * sizeof(command_t));
