@@ -20,6 +20,7 @@
 
 #define BYTE_MAX_VALUE 0xFF
 #define WORD_MAX_VALUE 0xFFFFFFFF
+#define MAX_PAGE_OFFSET (1 << PAGE_OFFSET) - 1
 
 #define INIT_COMMANDS_NB 10
 
@@ -52,8 +53,13 @@ int program_add_command(program_t* program, command_t const * command) {
 	M_REQUIRE_NON_NULL(program);
 	M_REQUIRE_NON_NULL(command);
 
+	M_REQUIRE(command->order == READ || command->order == WRITE, ERR_BAD_PARAMETER, "%s", "Command order should be either READ or WRITE");
+	M_REQUIRE(command->type == INSTRUCTION || command->type == DATA, ERR_BAD_PARAMETER, "%s", "Command type should be either DATA or INSTRUCTION");
+
+	M_EXIT_IF(command->order == READ && command->write_data != 0, "%s", "Write data should be 0 if command order is READ");
+
 	// Write Instr.
-	M_REQUIRE( !(command->type == INSTRUCTION && command->data_size != sizeof(word_t) ), ERR_BAD_PARAMETER, "%s", "illegal command: read should not have write data");
+	M_REQUIRE(!(command->type == INSTRUCTION && command->data_size != sizeof(word_t)), ERR_BAD_PARAMETER, "%s", "illegal command: read should not have write data");
 	if(command->order == WRITE){
 		// data size is either word or byte
 		M_REQUIRE(command->data_size == sizeof(word_t) || command->data_size == sizeof(byte_t), ERR_SIZE, "%s", "illegal command: data size is neither word nor byte");
@@ -61,11 +67,7 @@ int program_add_command(program_t* program, command_t const * command) {
 		// data_size and write_data value are coherent
 		int write_word_coherent = (command->data_size == sizeof(word_t)) && (command->write_data <= WORD_MAX_VALUE);
 		int write_byte_coherent = (command->data_size == sizeof(byte_t)) && (command->write_data <= BYTE_MAX_VALUE);
-		M_REQUIRE( write_word_coherent || write_byte_coherent, ERR_SIZE, "%s", "illegal command: write data is too big compared to declared datasize");
-	}
-
-	if(command->type == INSTRUCTION){
-		M_REQUIRE( command->data_size == sizeof(word_t), ERR_BAD_PARAMETER, "%s", "Illegal command: Instruction data size should always be sizeof(word_t)");
+		M_REQUIRE(write_word_coherent || write_byte_coherent, ERR_SIZE, "%s", "illegal command: write data is too big compared to declared datasize");
 	}
 
 	// Address offset should be a multiple of data size
@@ -75,6 +77,8 @@ int program_add_command(program_t* program, command_t const * command) {
 	}
 	// Note : if data is in bytes, every address has valid offset
 
+	// Address page offset should be inside a page
+	M_REQUIRE(command->vaddr.page_offset <= MAX_PAGE_OFFSET, "%s", "Page offset should be smaller than the max possible value");
 
 	while(program->nb_lines >= program->allocated){
 		M_EXIT_IF_ERR(program_enlarge(program), "Error trying to reallocate more memory");
@@ -281,7 +285,7 @@ static int next_word(char* str, char* read, size_t read_len, unsigned int* index
 	while(*index < str_len && isspace(str[*index])){
 		(*index)++;
 	}
-
+	
 	// reads only in cases it needs to. Empty fields are not read -> error
 	M_EXIT_IF(*index == str_len, ERR_BAD_PARAMETER, "%s",
 						"Reached end of string, but expected more (presumably wrong command format)");

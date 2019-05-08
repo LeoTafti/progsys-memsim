@@ -12,6 +12,9 @@
 
 #include <stdio.h> // FILE
 
+#define MAX_9BIT_VALUE 0x1FF
+#define MAX_12BIT_VALUE 0xFFF
+
 /**
  * @brief Initialize virt_addr_t structure. Reserved bits are zeroed.
  * @param vaddr (modified) the virtual address structure to be initialized

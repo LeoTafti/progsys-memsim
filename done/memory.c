@@ -135,6 +135,10 @@ int vmem_page_dump_with_options(const void *mem_space, const virt_addr_t* from,
  */
 
 int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capacity_in_bytes){
+	M_REQUIRE_NON_NULL(filename);
+	M_REQUIRE_NON_NULL(memory);
+	M_REQUIRE_NON_NULL(mem_capacity_in_bytes);
+
 	FILE* mem_dump = fopen(filename, "rb");
 
 	if(mem_dump != NULL){
@@ -146,7 +150,6 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 		//Allocate memory
 		*memory = calloc(*mem_capacity_in_bytes, 1);
 
-
 		size_t bytes_read;
 		if(*memory != NULL){
 			//Initialize the memory from mem_dump file
@@ -155,8 +158,11 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 		fclose(mem_dump);
 
 		M_EXIT_IF_NULL(*memory, *mem_capacity_in_bytes);
-		M_REQUIRE(bytes_read == *mem_capacity_in_bytes, ERR_IO,
-              "%s", "Couldn't read the whole memory dump file");
+
+		if(bytes_read != *mem_capacity_in_bytes){
+			free(*memory);
+			M_EXIT(ERR_IO, "%s", "Couldn't read the whole memory dump file");
+		}
 	}else{
 		*memory = NULL;
 		M_EXIT_ERR(ERR_IO, "Error opening file %s", filename);
@@ -207,6 +213,10 @@ int mem_init_from_description(const char* master_filename,
                               void** memory,
                               size_t* mem_capacity_in_bytes) {
 
+	M_REQUIRE_NON_NULL(master_filename);
+	M_REQUIRE_NON_NULL(memory);
+	M_REQUIRE_NON_NULL(mem_capacity_in_bytes);
+
 	FILE* f = fopen(master_filename, "r");
 	M_REQUIRE_NON_NULL_CUSTOM_ERR(f, ERR_IO);
 
@@ -233,21 +243,29 @@ int mem_init_from_description(const char* master_filename,
 	error_code err = ERR_NONE;
 
 	// PGD
-	fscanf(f, "%s", filename);
+	if(fscanf(f, "%s", filename) != 1){
+		fclose(f); return ERR_IO;
+	}
+
 	if((err = init_phy_addr(&paddr, 0, 0)) != ERR_NONE) { //PGD starts at phy addr. 0
-    fclose(f); return err;
-  }
+    	fclose(f); return err;
+  	}
 	if(page_file_read(&paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE){
-    fclose(f); return ERR_IO;
-  }
+    	fclose(f); return ERR_IO;
+  	}
 
   // OTHER TRANSLATION PAGES
 	int nb_pages;
-	fscanf(f, "%d", &nb_pages);
+	if(fscanf(f, "%d", &nb_pages) != 1){
+		fclose(f); return ERR_IO;
+	}
 
 	uint64_t vaddr64 = 0ul;
 	for(int i = 0; i < nb_pages; i++) {
-		fscanf(f, "%x %s", &paddr_32b, filename);
+		if(fscanf(f, "%x %s", &paddr_32b, filename) != 2){
+			fclose(f); return ERR_IO;
+		}
+
 		if((err = init_phy_addr(&paddr, paddr_32b, 0)) != ERR_NONE) {
         	fclose(f);
         	return err;
@@ -261,7 +279,9 @@ int mem_init_from_description(const char* master_filename,
   /*** WRITE DATA PAGES ***/
 	char newline[MAX_LINE_LENGTH+1];
 	while(fgets(newline, MAX_LINE_LENGTH, f) != NULL) {
-		fscanf(f, "%lx %s", &vaddr64, filename);
+		if(fscanf(f, "%lx %s", &vaddr64, filename) != 2){
+			fclose(f); return ERR_IO;
+		}
 		if((err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr)) != ERR_NONE) {
       		fclose(f);
       		return err;
@@ -304,24 +324,22 @@ static int page_file_read(
 	FILE* page_file = fopen(page_filename, "rb");
 	M_REQUIRE_NON_NULL_CUSTOM_ERR(page_file, ERR_IO);
 
-	//Determine page file size
-	fseek(page_file, 0L, SEEK_END);
-	size_t page_file_size = ftell(page_file);
-	rewind(page_file);
-
 	size_t bytes_read;
 	uint32_t phy_addr_32b = phy_addr_t_to_uint32_t(phy_addr);
+
+	M_REQUIRE(phy_addr_32b & MAX_12BIT_VALUE == 0, "%s", "Address should be aligned with the beggining of the page");
+
 	//Check that it fits in allocated memory from given address
-	if(phy_addr_32b + page_file_size <= mem_capacity_in_bytes){
+	if(phy_addr_32b + PAGE_SIZE <= mem_capacity_in_bytes){
 		//Read the page_file and write it in memory
-		bytes_read = fread(&((byte_t*)memory)[phy_addr_32b], 1, page_file_size, page_file);
+		bytes_read = fread(&((byte_t*)memory)[phy_addr_32b], 1, PAGE_SIZE, page_file);
 	}else{
 		fclose(page_file);
 		M_EXIT_ERR(ERR_MEM, "%s", "Not enough space to store the whole page file in memory from given physical address");
 	}
 
 	fclose(page_file);
-	M_REQUIRE(bytes_read == page_file_size, ERR_IO, "%s", "Couldn't read the whole page file");
+	M_REQUIRE(bytes_read == PAGE_SIZE, ERR_IO, "%s", "Couldn't read the whole page file");
 
 	return ERR_NONE;
 }
