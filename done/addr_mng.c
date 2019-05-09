@@ -66,8 +66,10 @@ int init_phy_addr(phy_addr_t* paddr, uint32_t page_begin, uint32_t page_offset){
 	M_REQUIRE_NON_NULL(paddr);
 	M_REQUIRE(page_offset <= MAX_12BIT_VALUE, ERR_BAD_PARAMETER,
             "Page offset should be a 12-bit value, was %" PRIX32, page_offset);
+	M_REQUIRE(page_begin & MAX_12BIT_VALUE == 0, ERR_BAD_PARAMETER,
+			"Page begin should be at the begining of a page");
 
-  //page_begin (PAGE_OFFSET) LSbs are discarded
+    //page_begin (PAGE_OFFSET) LSbs are discarded
 	paddr->phy_page_num = page_begin >> PAGE_OFFSET;
 	paddr->page_offset = page_offset;
 

@@ -13,6 +13,21 @@
 #include "error.h"
 #include "addr.h"
 
+static inline uint64_t tag_and_index_from_vaddr(const virt_addr_t* vaddr){
+    return virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
+}
+
+//TODO : What do you think of having tlb_lines as a size_t ?
+// ok for me
+
+static inline uint32_t tag_from_tag_and_index(uint64_t tag_and_index, const size_t tlb_lines){
+    return tag_and_index / tlb_lines;
+}
+
+static inline uint8_t index_from_tag_and_index(uint64_t tag_and_index, const size_t tlb_lines){
+    return tag_and_index % tlb_lines;
+}
+
 /**
  * @brief Clean a TLB (invalidate, reset...).
  *
@@ -71,14 +86,9 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
 
 #define HIT_TLB(tlb_entry_type, TLB_LINES) \
     do { \
-        uint64_t tag_and_index = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET; \
-        /*TODO: vaddr is reserved ++ tag ++ index ++ offset.*/\
-        /*tag_and_index only works if reserved bits are all 0*/\
-        /*(masking tag bits would be more robust)*/\
-        /*But maybe we can assume they are ?*/\
-        \
-        uint32_t tag = tag_and_index / TLB_LINES; \
-        uint8_t index = tag_and_index % TLB_LINES; \
+        uint64_t tag_and_index = tag_and_index_from_vaddr(vaddr); \
+        uint32_t tag = tag_from_tag_and_index(tag_and_index, TLB_LINES); \
+        uint8_t index = index_from_tag_and_index(tag_and_index, TLB_LINES); \
         \
         tlb_entry_type tlb_entry = ((tlb_entry_type*)tlb)[index]; \
         \
@@ -241,25 +251,16 @@ int tlb_entry_init( const virt_addr_t * vaddr,
         tlb_entry_type new_entry; \
         tlb_entry_init(vaddr, paddr, &new_entry, TLB_TYPE); \
         \
-        /*Get the line index from  vaddr*/ \
-        \
-        /*TODO: vaddr is reserved ++ tag ++ index ++ offset.*/\
-        /*tag_and_index only works if reserved bits are all 0*/\
-        /*(masking tag bits would be more robust)*/\
-        /*But maybe we can assume they are ?*/\
-        \
-        /*TODO : : second time we do that : create a function ?*/\
-        uint64_t tag_and_index = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET; \
-        uint8_t index = tag_and_index % TLB_LINES; \
+        uint64_t tag_and_index = tag_and_index_from_vaddr(vaddr); \
+        uint8_t index = index_from_tag_and_index(tag_and_index, TLB_LINES); \
         tlb_insert(index, &new_entry, tlb, TLB_TYPE); \
     } while(0)
 
 #define INVALIDATE_IF_NECESSARY(tlb, TLB_LINES) \
     do { \
-        /* 3rd time we do that : create two macros (to get tag or index) ?*/ \
-        uint64_t tag_and_index = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET; \
-        uint32_t tag = tag_and_index / TLB_LINES; \
-        uint8_t index = tag_and_index % TLB_LINES; \
+        uint64_t tag_and_index = tag_and_index_from_vaddr(vaddr); \
+        uint32_t tag = tag_from_tag_and_index(tag_and_index, TLB_LINES); \
+        uint8_t index = index_from_tag_and_index(tag_and_index, TLB_LINES); \
         \
         if(tlb[index].tag == tag) { \
             tlb[index].v = INVALID; \
