@@ -76,6 +76,28 @@
  * (et supprimer ces huit lignes de commentaire).
  */
 
+typedef struct{
+    uint8_t v   : 1;
+    uint8_t age : 2;
+    uint32_t tag : L1_ICACHE_TAG_BITS;
+    word_t line[L1_ICACHE_WORDS_PER_LINE];
+} l1_icache_entry_t;
+
+typedef l1_icache_entry_t l1_dcache_entry_t;
+
+typedef struct{
+    uint8_t v   : 1;
+    uint8_t age : 3;
+    uint32_t tag : L2_CACHE_TAG_BITS;
+    word_t line[L2_CACHE_WORDS_PER_LINE];
+} l2_cache_entry_t;
+
+typedef enum{
+    L1_ICACHE,
+    L1_DCACHE,
+    L2_CACHE
+} cache_t;
+
 // --------------------------------------------------
 #define cache_cast(TYPE) ((TYPE *)cache)
 
