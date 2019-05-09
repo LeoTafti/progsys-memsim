@@ -54,8 +54,6 @@ int program_add_command(program_t* program, command_t const * command) {
   // correcteur can be diff than READ / WRITE
   // corecteur can be diff than DATA / INSTRUCTION
   // correcteur incorrect data_size is valid
-  // correcteur page offset is not alligned
-  // correcteur write_data is one when read
 
 	// Write Instr.
 	M_REQUIRE( !(command->type == INSTRUCTION && command->data_size != sizeof(word_t) ), ERR_BAD_PARAMETER, "%s", "illegal command: read should not have write data");

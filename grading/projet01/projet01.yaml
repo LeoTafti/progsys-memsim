@@ -19,7 +19,7 @@
 - commands.c: # NE PAS REMPLIR CETTE LIGNE
   - program_print(): 7         # max 7, 
   - program_init(): 6          # max 6, 
-  - program_add_command(): 11  # max 16, 
+  - program_add_command(): 13  # max 16, 
   - program_shrink(): 6        # max 6, 
   - program_read(): # NE PAS REMPLIR CETTE LIGNE
       modularisation: 5              # max 5, 
