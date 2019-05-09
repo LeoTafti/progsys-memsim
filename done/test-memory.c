@@ -101,6 +101,7 @@ int main(int argc, char *argv[])
 
     } else {
         error(argv[0], "problem initializing memory from provided file.");
+        printf("ErrCode = %d\n", err);
         return 3;
     }
 

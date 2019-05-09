@@ -9,6 +9,7 @@
 #include "error.h"
 #include "util.h"
 #include "cache_mng.h"
+#include "addr_mng.h"
 
 #include <inttypes.h> // for PRIx macros
 
@@ -141,7 +142,15 @@ int cache_insert(uint16_t cache_line_index,
 int cache_entry_init(const void * mem_space,
                      const phy_addr_t * paddr,
                      void * cache_entry,
-                     cache_t cache_type);
+                     cache_t cache_type){
+    M_REQUIRE_NON_NULL(mem_space);
+    M_REQUIRE_NON_NULL(paddr);
+    M_REQUIRE_NON_NULL(cache_entry);
+    
+    uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);
+    //TODO : complete !
+    return 0;
+}
 
 //=========================================================================
 /**

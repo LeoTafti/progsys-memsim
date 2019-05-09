@@ -56,7 +56,7 @@ int program_add_command(program_t* program, command_t const * command) {
 	M_REQUIRE(command->order == READ || command->order == WRITE, ERR_BAD_PARAMETER, "%s", "Command order should be either READ or WRITE");
 	M_REQUIRE(command->type == INSTRUCTION || command->type == DATA, ERR_BAD_PARAMETER, "%s", "Command type should be either DATA or INSTRUCTION");
 
-	M_EXIT_IF(command->order == READ && command->write_data != 0, "%s", "Write data should be 0 if command order is READ");
+	M_EXIT_IF(command->order == READ && command->write_data != 0, ERR_BAD_PARAMETER, "%s", "Write data should be 0 if command order is READ");
 
 	// Write Instr.
 	M_REQUIRE(!(command->type == INSTRUCTION && command->data_size != sizeof(word_t)), ERR_BAD_PARAMETER, "%s", "illegal command: read should not have write data");
@@ -78,7 +78,7 @@ int program_add_command(program_t* program, command_t const * command) {
 	// Note : if data is in bytes, every address has valid offset
 
 	// Address page offset should be inside a page
-	M_REQUIRE(command->vaddr.page_offset <= MAX_PAGE_OFFSET, "%s", "Page offset should be smaller than the max possible value");
+	M_REQUIRE(command->vaddr.page_offset <= MAX_PAGE_OFFSET, ERR_ADDR, "%s", "Page offset should be smaller than the max possible value");
 
 	while(program->nb_lines >= program->allocated){
 		M_EXIT_IF_ERR(program_enlarge(program), "Error trying to reallocate more memory");

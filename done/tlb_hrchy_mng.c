@@ -151,10 +151,12 @@ int tlb_hit( const virt_addr_t * vaddr,
          } \
      } while(0)
 
+//FIXME: I think you forgot to set the valid bit to 1. I did it but we still get the --- in the output...
 #define INSERT(tlb_entry_type, number_lines) \
   do { \
     M_REQUIRE(line_index < number_lines, ERR_BAD_PARAMETER, "%s", "wrong tlb insert"); \
     ((tlb_entry_type*) tlb)[line_index] = *( (tlb_entry_type*) tlb_entry); \
+    ((tlb_entry_type*) tlb)[line_index].v = VALID; \
   } while(0)
 
 int tlb_insert( uint32_t line_index,
