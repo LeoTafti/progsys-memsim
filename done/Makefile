@@ -21,7 +21,8 @@ LDLIBS += -lcheck -lm -lrt -pthread -lsubunit
 
 all:: memory.o error.o addr_mng.o commands.o page_walk.o list.o tlb_mng.o \
  test-addr.o test-commands.o test-memory.o test-list.o test-tlb_simple.o \
- test-addr test-commands test-memory test-list test-tlb_simple
+ test-addr test-commands test-memory test-list test-tlb_simple tlb_hrchy_mng.o \
+ test-tlb_hrchy
 
 # dependencies ---------------------------------------------------------
 
@@ -34,6 +35,8 @@ page_walk.o: page_walk.c addr.h addr_mng.h error.h
 list.o: list.c list.h
 tlb_mng.o: tlb_mng.c tlb.h addr.h tlb_mng.h list.h addr_mng.h page_walk.h \
  error.h
+tlb_hrchy_mng.o: tlb_hrchy_mng.c tlb_hrchy_mng.h tlb_hrchy.h addr.h\
+ mem_access.h error.h page_walk.c
 
 test-addr.o: test-addr.c tests.h error.h util.h addr.h addr_mng.h
 test-commands.o: test-commands.c error.h commands.h mem_access.h addr.h
@@ -42,7 +45,8 @@ test-memory.o: test-memory.c error.h memory.h addr.h page_walk.h util.h \
 test-list.o: test-list.c list.h
 test-tlb_simple.o: test-tlb_simple.c error.h util.h addr_mng.h addr.h \
  commands.h mem_access.h memory.h list.h tlb.h tlb_mng.h
-
+test-tlb_hrchy.o: test-tlb_hrchy.c error.h util.h addr_mng.h addr.h \
+  commands.h mem_access.h memory.h tlb_hrchy.h tlb_hrchy_mng.h
 
 # exe ------------------------------------------------------------------
 test-addr: test-addr.o addr_mng.o
@@ -51,6 +55,9 @@ test-memory: test-memory.o memory.o addr_mng.o page_walk.o error.o
 test-list: test-list.o list.o error.o
 test-tlb_simple: test-tlb_simple.o list.o error.o addr_mng.o page_walk.o commands.o \
  memory.o tlb_mng.o
+test-tlb_hrchy: test-tlb_hrchy.o error.o addr_mng.o commands.o memory.o \
+ tlb_hrchy_mng.o page_walk.o
+
 
 # test-runner ----------------------------------------------------------
 test: test-addr test-commands test-memory test-list test-tlb_simple
@@ -65,6 +72,8 @@ test: test-addr test-commands test-memory test-list test-tlb_simple
 	./test-list
 	@echo "++++++++TESTING TLB++++++++"
 	./tests/08.basic.sh
+	@echo "++++++++TESTING TLB HRCHY++++++++"
+	./tests/09.basic.sh
 	@echo " +++++++ DONE +++++++"
 
 # ----------------------------------------------------------------------

@@ -1,11 +1,17 @@
+/**
+ * @file list.c
+ * @brief Doubly linked list
+ *
+ * @author Juillard Paul, Tafti Leo
+ * @date 2019
+ */
+
 #include "tlb_hrchy_mng.h"
 #include "tlb_hrchy.h"
 #include "page_walk.h"
 #include "addr_mng.h"
 #include "error.h"
 #include "addr.h"
-
-
 
 /**
  * @brief Clean a TLB (invalidate, reset...).
@@ -124,9 +130,22 @@ int tlb_hit( const virt_addr_t * vaddr,
  * @param tlb_type to distinguish between different TLBs
  * @return  error code
  */
-#define INSERT(tlb_entry_type, number_lines)\
-  M_REQUIRE(line_index < number_lines, ERR_BAD_PARAMETER, "%s", "wrong tlb insert");\
-  (tlb_entry_type*) tlb[line_index] = *((tlb_entry_type*)tlb_entry)\
+
+ #define FLUSH(tlb_entry_type, TLB_LINES) \
+     do { \
+         tlb_entry_type* tlb_arr = (tlb_entry_type*)tlb; \
+         for(size_t i = 0; i < TLB_LINES; i++) { \
+             tlb_arr[i].v = INVALID; \
+             tlb_arr[i].tag = 0; \
+             tlb_arr[i].phy_page_num = 0; \
+         } \
+     } while(0)
+
+#define INSERT(tlb_entry_type, number_lines) \
+  do { \
+    M_REQUIRE(line_index < number_lines, ERR_BAD_PARAMETER, "%s", "wrong tlb insert"); \
+    ((tlb_entry_type*) tlb)[line_index] = *( (tlb_entry_type*) tlb_entry); \
+  } while(0)
 
 int tlb_insert( uint32_t line_index,
                 const void * tlb_entry,
@@ -278,13 +297,13 @@ int tlb_search( const void * mem_space,
         M_EXIT(ERR_BAD_PARAMETER, "%s", "Unrecognized memory access type");
         break;
     }
-    
+
     if(*hit_or_miss == MISS){
         //Search in L2 TLB
         *hit_or_miss = tlb_hit(vaddr, paddr, l2_tlb, L2_TLB);
         if(*hit_or_miss == HIT){
             //Update appropriate L1 TLB with data found in L2 TLB
-            
+
             switch (access)
             {
             case INSTRUCTION:
