@@ -17,9 +17,6 @@ static inline uint64_t tag_and_index_from_vaddr(const virt_addr_t* vaddr){
     return virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
 }
 
-//TODO : What do you think of having tlb_lines as a size_t ?
-// ok for me
-
 static inline uint32_t tag_from_tag_and_index(uint64_t tag_and_index, const size_t tlb_lines){
     return tag_and_index / tlb_lines;
 }
@@ -151,7 +148,6 @@ int tlb_hit( const virt_addr_t * vaddr,
          } \
      } while(0)
 
-//FIXME: I think you forgot to set the valid bit to 1. I did it but we still get the --- in the output...
 #define INSERT(tlb_entry_type, number_lines) \
   do { \
     M_REQUIRE(line_index < number_lines, ERR_BAD_PARAMETER, "%s", "wrong tlb insert"); \
@@ -200,7 +196,7 @@ int tlb_insert( uint32_t line_index,
     do { \
         tlb_entry_type* entry = (tlb_entry_type*)tlb_entry; \
         entry->v = VALID; \
-        entry->tag = virt_addr_t_to_uint64_t(vaddr)>>(PAGE_OFFSET+L2_TLB_LINES_BITS); \
+        entry->tag = virt_addr_t_to_virtual_page_number(vaddr)>>TLB_LINES_BITS; \
         entry->phy_page_num = paddr->phy_page_num; \
     } while(0)
 
@@ -261,14 +257,10 @@ int tlb_entry_init( const virt_addr_t * vaddr,
 #define INVALIDATE_IF_NECESSARY(tlb, TLB_LINES) \
     do { \
         uint64_t tag_and_index = tag_and_index_from_vaddr(vaddr); \
-        uint32_t tag = tag_from_tag_and_index(tag_and_index, TLB_LINES); \
         uint8_t index = index_from_tag_and_index(tag_and_index, TLB_LINES); \
         \
-        if(tlb[index].tag == tag) { \
-            tlb[index].v = INVALID; \
-        } \
+        tlb[index].v = INVALID; \
     } while(0)
-
 
 int tlb_search( const void * mem_space,
                 const virt_addr_t * vaddr,
@@ -286,7 +278,6 @@ int tlb_search( const void * mem_space,
     M_REQUIRE_NON_NULL(l1_dtlb);
     M_REQUIRE_NON_NULL(l2_tlb);
     M_REQUIRE_NON_NULL(hit_or_miss);
-
     //Search in appropriate L1 TLB
     switch (access)
     {
@@ -333,7 +324,6 @@ int tlb_search( const void * mem_space,
             case INSTRUCTION:
                 INSERT(l1_itlb_entry_t, L1_ITLB, L1_ITLB_LINES, l1_itlb);
                 INVALIDATE_IF_NECESSARY(l1_dtlb, L1_DTLB_LINES);
-
                 break;
             case DATA:
                 INSERT(l1_dtlb_entry_t, L1_DTLB, L1_DTLB_LINES, l1_dtlb);

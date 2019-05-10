@@ -277,14 +277,12 @@ int mem_init_from_description(const char* master_filename,
   	}
 
   /*** WRITE DATA PAGES ***/
-	char newline[MAX_LINE_LENGTH+1];
-	while(fgets(newline, MAX_LINE_LENGTH, f) != NULL) {
-		//FIXME: This check fails for some reason, but if we don't do it everything works fine (make check passes... find out why / how to do it properly ?)
-		//printf("fscanf returns what : %d", fscanf(f, "%" SCNu64 "%s", &vaddr64, filename));
-		// if(fscanf(f, "%lx %s", &vaddr64, filename) != 2){
-		// 	fclose(f); return ERR_IO;
-		// }
-		fscanf(f, "%lx %s", &vaddr64, filename);
+	while(fscanf(f, "%lx %s", &vaddr64, filename) == 2 && !feof(f)) {
+		//FIXME: This check fails for some reason,
+    // but if we don't do it everything works fine (make check passes... find out why / how to do it properly ?)
+    // paul - the problem is an EOF because the last line doesnt have a \n so scnaf return -1
+    // anyway it was very weird to first fgets(newline) and then fscanf(f)
+
 		if((err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr)) != ERR_NONE) {
       		fclose(f);
       		return err;
@@ -299,7 +297,7 @@ int mem_init_from_description(const char* master_filename,
 }
 
 /**
- * @brief Translates a virtual address, given as a 64-bit value, in the corresponding physical address 
+ * @brief Translates a virtual address, given as a 64-bit value, in the corresponding physical address
  */
 static int virt_uint_64_to_phy_addr(void * const memory, const uint64_t vaddr64, phy_addr_t * paddr){
 	virt_addr_t vaddr;
@@ -317,7 +315,7 @@ static int virt_uint_64_to_phy_addr(void * const memory, const uint64_t vaddr64,
  * @param memory the memory space to write the page in
  * @param mem_capacity_in_bytes the memory capacity, to ensure the is enough space
  * @return ERR_NONE if sucessful, appropriate error code otherwise
- */ 
+ */
 static int page_file_read(
 	const phy_addr_t* phy_addr,
 	const char* page_filename,

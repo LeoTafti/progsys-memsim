@@ -102,7 +102,7 @@ check:: all
 	  for file in tests/*.*.sh; do [ -x $$file ] || echo "Launching $$file"; ./$$file || exit 1; done; \
 	fi
 
-IMAGE=arashpz/feedback:latest
+IMAGE=arashpz/feedback:week09
 feedback:
 	@docker pull $(IMAGE)
 	@docker run -it --rm -v ${PWD}:/home/tester/done $(IMAGE)
