@@ -60,7 +60,7 @@ test-tlb_hrchy: test-tlb_hrchy.o error.o addr_mng.o commands.o memory.o \
 
 
 # test-runner ----------------------------------------------------------
-test: test-addr test-commands test-memory test-list test-tlb_simple
+test: test-addr test-commands test-memory test-list test-tlb_simple test-tlb_hrchy
 	@echo " +++++++ TESTING ADDR +++++++"
 	./test-addr
 	@echo " +++++++ TESTING COMMANDS +++++++"
@@ -73,7 +73,8 @@ test: test-addr test-commands test-memory test-list test-tlb_simple
 	@echo "++++++++TESTING TLB++++++++"
 	./tests/08.basic.sh
 	@echo "++++++++TESTING TLB HRCHY++++++++"
-	./tests/09.basic.sh
+	./test-tlb_hrchy tests/files/commands02.txt tests/files/memory-dump-01.mem resultat.txt
+	#./tests/09.basic.sh
 	@echo " +++++++ DONE +++++++"
 
 # ----------------------------------------------------------------------

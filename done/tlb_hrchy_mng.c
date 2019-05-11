@@ -13,6 +13,17 @@
 #include "error.h"
 #include "addr.h"
 
+// TODO remove
+// also DO NOT run feedback with this anywhere
+static void print_content(l1_itlb_entry_t * l1_itlb, l1_dtlb_entry_t * l1_dtlb, l2_tlb_entry_t * l2_tlb) {
+  printf("ITLB\n");
+  for(int i = 0; i < L1_ITLB_LINES; i++) printf("   I[%d] : %x  V=%d\n", i, l1_itlb[i].tag, l1_itlb[i].v);
+  printf("DTLB\n");
+  for(int i = 0; i < L1_DTLB_LINES; i++) printf("   D[%d] : %x  V=%d\n", i, l1_dtlb[i].tag, l1_dtlb[i].v);
+  printf("L2TLB\n");
+  for(int i = 0; i < L2_TLB_LINES; i++)  printf("   L2[%d] : %x  V=%d\n", i, l2_tlb[i].tag, l2_tlb[i].v);
+}
+
 static inline uint64_t tag_and_index_from_vaddr(const virt_addr_t* vaddr){
     return virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
 }
@@ -137,22 +148,10 @@ int tlb_hit( const virt_addr_t * vaddr,
  * @param tlb_type to distinguish between different TLBs
  * @return  error code
  */
-
- #define FLUSH(tlb_entry_type, TLB_LINES) \
-     do { \
-         tlb_entry_type* tlb_arr = (tlb_entry_type*)tlb; \
-         for(size_t i = 0; i < TLB_LINES; i++) { \
-             tlb_arr[i].v = INVALID; \
-             tlb_arr[i].tag = 0; \
-             tlb_arr[i].phy_page_num = 0; \
-         } \
-     } while(0)
-
 #define INSERT(tlb_entry_type, number_lines) \
   do { \
     M_REQUIRE(line_index < number_lines, ERR_BAD_PARAMETER, "%s", "wrong tlb insert"); \
-    ((tlb_entry_type*) tlb)[line_index] = *( (tlb_entry_type*) tlb_entry); \
-    ((tlb_entry_type*) tlb)[line_index].v = VALID; \
+    ((tlb_entry_type*) tlb)[line_index] = *((tlb_entry_type*) tlb_entry); \
   } while(0)
 
 int tlb_insert( uint32_t line_index,
@@ -253,13 +252,28 @@ int tlb_entry_init( const virt_addr_t * vaddr,
         uint8_t index = index_from_tag_and_index(tag_and_index, TLB_LINES); \
         tlb_insert(index, &new_entry, tlb, TLB_TYPE); \
     } while(0)
+/* FIXME eviction policy not functional
+cf forum post
+idea seems right (discussed it with others for whom it works),execution must be wrong
+most likely computation of eviction_tag_and_index
 
+if L2 entry is valid
+    recover L1 tag from L2 tag and index
+    if other L1 contains something for this tag
+      evict
+*/
+// TODO less useless variables?
 #define INVALIDATE_IF_NECESSARY(tlb, TLB_LINES) \
     do { \
         uint64_t tag_and_index = tag_and_index_from_vaddr(vaddr); \
-        uint8_t index = index_from_tag_and_index(tag_and_index, TLB_LINES); \
-        \
-        tlb[index].v = INVALID; \
+        uint8_t l2_index = index_from_tag_and_index(tag_and_index, L2_TLB_LINES); \
+        if(l2_tlb[l2_index].v == VALID) { \
+          uint32_t eviction_tag = l2_tlb[l2_index].tag; \
+          uint64_t eviction_tag_and_index = (eviction_tag * L2_TLB_LINES) + l2_index;\
+          uint32_t l1_tag = tag_from_tag_and_index(eviction_tag_and_index, TLB_LINES);\
+          uint8_t  l1_index = index_from_tag_and_index(eviction_tag_and_index, TLB_LINES); \
+          if(tlb[l1_index].tag == l1_tag){ tlb[l1_index].v = INVALID; } \
+        } \
     } while(0)
 
 int tlb_search( const void * mem_space,
@@ -296,8 +310,8 @@ int tlb_search( const void * mem_space,
         //Search in L2 TLB
         *hit_or_miss = tlb_hit(vaddr, paddr, l2_tlb, L2_TLB);
         if(*hit_or_miss == HIT){
-            //Update appropriate L1 TLB with data found in L2 TLB
 
+            //Update appropriate L1 TLB with data found in L2 TLB
             switch (access)
             {
             case INSTRUCTION:
@@ -313,9 +327,6 @@ int tlb_search( const void * mem_space,
         }else{ //L2 MISS
             //Translate the virtual address
             M_EXIT_IF_ERR(page_walk(mem_space, vaddr, paddr), "Problem translating virtual address");
-
-            //Insert a new entry in the L2 TLB for this translation
-            INSERT(l2_tlb_entry_t, L2_TLB, L2_TLB_LINES, l2_tlb);
 
             //Insert a new entry in the appropriate L1 TLB for this translation
             //and invalidate corresp. entry in the other L1 TLB (if it was previously valid)
@@ -333,6 +344,9 @@ int tlb_search( const void * mem_space,
                 M_EXIT(ERR_BAD_PARAMETER, "%s", "Unrecognized memory access type");
                 break;
             }
+
+            //Insert a new entry in the L2 TLB for this translation
+            INSERT(l2_tlb_entry_t, L2_TLB, L2_TLB_LINES, l2_tlb);
 
         }
     }
