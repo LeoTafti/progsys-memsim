@@ -25,8 +25,6 @@ static inline uint8_t index_from_tag_and_index(uint64_t tag_and_index, const siz
     return tag_and_index % tlb_lines;
 }
 
-//=========================================================================
-
 #define FLUSH(tlb_entry_type, TLB_LINES) \
     do { \
         tlb_entry_type* tlb_arr = (tlb_entry_type*)tlb; \
@@ -61,7 +59,6 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
 
 #undef FLUSH
 
-//=========================================================================
 
 #define HIT_TLB(tlb_entry_type, TLB_LINES) \
     do { \
@@ -109,7 +106,6 @@ int tlb_hit( const virt_addr_t * vaddr,
 
 #undef HIT_TLB
 
-//=========================================================================
 
 #define INSERT(tlb_entry_type, number_lines) \
   do { \
@@ -145,7 +141,6 @@ int tlb_insert( uint32_t line_index,
 
 #undef INSERT
 
-//=========================================================================
 
 #define INIT(tlb_entry_type, TLB_LINES_BITS) \
     do { \
@@ -196,8 +191,7 @@ int tlb_entry_init( const virt_addr_t * vaddr,
         tlb_insert(index, &new_entry, tlb, TLB_TYPE); \
     } while(0)
 
-// TODO I think we can merge the last two together
-#define INSERT_L2_AND_INVALIDATE_L1(l1_tlb, L1_TLB_LINES, L1_TLB_LINES_BITS) \
+#define INSERT_L2_AND_INVALIDATE_L1(l1_tlb, L1_TLB_LINES_BITS) \
     do { \
         /*Create and init. a new L2 tlb entry*/ \
         l2_tlb_entry_t new_entry; \
@@ -206,7 +200,7 @@ int tlb_entry_init( const virt_addr_t * vaddr,
         uint8_t index = index_from_tag_and_index(tag_and_index, L2_TLB_LINES); \
         \
         /*If l2 entry was also in the other l1 tlb, invalidate it*/ \
-        INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES, L1_TLB_LINES_BITS); \
+        INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES_BITS); \
         \
         /*Finally, insert the new entry in the L2*/ \
         tlb_insert(index, &new_entry, l2_tlb, L2_TLB); \
@@ -214,7 +208,7 @@ int tlb_entry_init( const virt_addr_t * vaddr,
 
 #define MASK4 15
 #define MASK2 3
-#define INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES, L1_TLB_LINES_BITS) \
+#define INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES_BITS) \
     do { \
         /*Get the previous entry in L2 TLB*/\
         l2_tlb_entry_t old_entry = l2_tlb[index];\
@@ -281,16 +275,16 @@ int tlb_search( const void * mem_space,
             //Translate the virtual address
             M_EXIT_IF_ERR(page_walk(mem_space, vaddr, paddr), "Problem translating virtual address");
 
-            //Insert a new entry in the appropriate L1 TLB for this translation
-            //and invalidate corresp. entry in the other L1 TLB (if it was previously valid)
+            //Insert a new entry in the L2 tlb and appropriate L1 TLB for this translation
+            //Invalidate corresp. entry in the other L1 TLB (if it was previously valid)
             switch (access)
             {
             case INSTRUCTION:
-                INSERT_L2_AND_INVALIDATE_L1(l1_dtlb, L1_DTLB_LINES, L1_DTLB_LINES_BITS);
+                INSERT_L2_AND_INVALIDATE_L1(l1_dtlb, L1_DTLB_LINES_BITS);
                 INSERT(l1_itlb_entry_t, L1_ITLB, L1_ITLB_LINES, l1_itlb);
                 break;
             case DATA:
-                INSERT_L2_AND_INVALIDATE_L1(l1_itlb, L1_ITLB_LINES, L1_ITLB_LINES_BITS);
+                INSERT_L2_AND_INVALIDATE_L1(l1_itlb, L1_ITLB_LINES_BITS);
                 INSERT(l1_dtlb_entry_t, L1_DTLB, L1_DTLB_LINES, l1_dtlb);
                 break;
             default:
