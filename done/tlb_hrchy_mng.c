@@ -13,17 +13,6 @@
 #include "error.h"
 #include "addr.h"
 
-// TODO remove
-// also DO NOT run feedback with this anywhere
-static void print_content(l1_itlb_entry_t * l1_itlb, l1_dtlb_entry_t * l1_dtlb, l2_tlb_entry_t * l2_tlb) {
-  printf("ITLB\n");
-  for(int i = 0; i < L1_ITLB_LINES; i++) printf("   I[%d] : %x  V=%d\n", i, l1_itlb[i].tag, l1_itlb[i].v);
-  printf("DTLB\n");
-  for(int i = 0; i < L1_DTLB_LINES; i++) printf("   D[%d] : %x  V=%d\n", i, l1_dtlb[i].tag, l1_dtlb[i].v);
-  printf("L2TLB\n");
-  for(int i = 0; i < L2_TLB_LINES; i++)  printf("   L2[%d] : %x  V=%d\n", i, l2_tlb[i].tag, l2_tlb[i].v);
-}
-
 static inline uint64_t tag_and_index_from_vaddr(const virt_addr_t* vaddr){
     return virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
 }
@@ -36,14 +25,8 @@ static inline uint8_t index_from_tag_and_index(uint64_t tag_and_index, const siz
     return tag_and_index % tlb_lines;
 }
 
-/**
- * @brief Clean a TLB (invalidate, reset...).
- *
- * This function erases all TLB data.
- * @param  tlb (generic) pointer to the TLB
- * @param tlb_type an enum to distinguish between different TLBs
- * @return  error code
- */
+//=========================================================================
+
 #define FLUSH(tlb_entry_type, TLB_LINES) \
     do { \
         tlb_entry_type* tlb_arr = (tlb_entry_type*)tlb; \
@@ -79,18 +62,6 @@ int tlb_flush(void *tlb, tlb_t tlb_type){
 #undef FLUSH
 
 //=========================================================================
-/**
- * @brief Check if a TLB entry exists in the TLB.
- *
- * On hit, return success (1) and update the physical page number passed as the pointer to the function.
- * On miss, return miss (0).
- *
- * @param vaddr pointer to virtual address
- * @param paddr (modified) pointer to physical address
- * @param tlb pointer to the beginning of the tlb
- * @param tlb_type to distinguish between different TLBs
- * @return hit (1) or miss (0)
- */
 
 #define HIT_TLB(tlb_entry_type, TLB_LINES) \
     do { \
@@ -139,15 +110,7 @@ int tlb_hit( const virt_addr_t * vaddr,
 #undef HIT_TLB
 
 //=========================================================================
-/**
- * @brief Insert an entry to a tlb. Eviction policy is simple since
- *        direct mapping is used.
- * @param line_index the number of the line to overwrite
- * @param tlb_entry pointer to the tlb entry to insert
- * @param tlb pointer to the TLB
- * @param tlb_type to distinguish between different TLBs
- * @return  error code
- */
+
 #define INSERT(tlb_entry_type, number_lines) \
   do { \
     M_REQUIRE(line_index < number_lines, ERR_BAD_PARAMETER, "%s", "wrong tlb insert"); \
@@ -181,15 +144,8 @@ int tlb_insert( uint32_t line_index,
 }
 
 #undef INSERT
+
 //=========================================================================
-/**
- * @brief Initialize a TLB entry
- * @param vaddr pointer to virtual address, to extract tlb tag
- * @param paddr pointer to physical address, to extract physical page number
- * @param tlb_entry pointer to the entry to be initialized
- * @param tlb_type to distinguish between different TLBs
- * @return  error code
- */
 
 #define INIT(tlb_entry_type, TLB_LINES_BITS) \
     do { \
@@ -229,19 +185,6 @@ int tlb_entry_init( const virt_addr_t * vaddr,
 #undef INIT
 
 //=========================================================================
-/**
- * @brief Ask TLB for the translation.
- *
- * @param mem_space pointer to the memory space
- * @param vaddr pointer to virtual address
- * @param paddr (modified) pointer to physical address (returned from TLB)
- * @param access to distinguish between fetching instructions and reading/writing data
- * @param l1_itlb pointer to the beginning of L1 ITLB
- * @param l1_dtlb pointer to the beginning of L1 DTLB
- * @param l2_tlb pointer to the beginning of L2 TLB
- * @param hit_or_miss (modified) hit (1) or miss (0)
- * @return error code
- */
 
 #define INSERT(tlb_entry_type, TLB_TYPE, TLB_LINES, tlb) \
     do { \
@@ -253,16 +196,8 @@ int tlb_entry_init( const virt_addr_t * vaddr,
         tlb_insert(index, &new_entry, tlb, TLB_TYPE); \
     } while(0)
 
-//TODO : see if this passes make feedback
-//TODO : this is almost the same as INSERT just above with params to insert in L2 tlb, except for the INVALIDATE_IF_NECESSARY call.
-//      I do not see a clean way of merging these two to avoid code duplication, other than passing an additional boolean value
-//      and do something like :
-//      if(must_invalidate){
-//            INVALIDATE_IF_NECESSARY(...)
-//      }
-//      It would be more compact, but less readable and makes no sense when we simply want to insert in a L1 tlb
-
-#define INSERT_L2_AND_INVALIDATE_L1(l1_tlb, L1_TLB_LINES) \
+// TODO I think we can merge the last two together
+#define INSERT_L2_AND_INVALIDATE_L1(l1_tlb, L1_TLB_LINES, L1_TLB_LINES_BITS) \
     do { \
         /*Create and init. a new L2 tlb entry*/ \
         l2_tlb_entry_t new_entry; \
@@ -271,41 +206,23 @@ int tlb_entry_init( const virt_addr_t * vaddr,
         uint8_t index = index_from_tag_and_index(tag_and_index, L2_TLB_LINES); \
         \
         /*If l2 entry was also in the other l1 tlb, invalidate it*/ \
-        INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES); \
+        INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES, L1_TLB_LINES_BITS); \
         \
         /*Finally, insert the new entry in the L2*/ \
         tlb_insert(index, &new_entry, l2_tlb, L2_TLB); \
     } while(0)
 
-
-// #define INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES) \
-//     do { \
-//         /*Get the previous entry in L2 TLB*/\
-//         l2_tlb_entry_t old_entry = l2_tlb[index];\
-//         if(old_entry.v == VALID){ \
-//             /*Concat the l2 entry tag and index*/\
-//             uint64_t old_l2_tag_and_index = (old_entry.tag << L2_TLB_LINES_BITS) | index;\
-//             \
-//             /*Split again into l1 entry tag and index*/\
-//             uint32_t old_l1_tag = tag_from_tag_and_index(old_l2_tag_and_index, L1_TLB_LINES);\
-//             uint8_t old_l1_index = index_from_tag_and_index(old_l2_tag_and_index, L1_TLB_LINES);\
-//             \
-//             /*Search the l1 tlb and invalidate if tag matches*/\
-//             printf("evicting index %d in %s:", old_l1_index, l1_tlb == l1_itlb? "ITLB" : "DTLB");\
-//             if(l1_tlb[old_l1_index].tag == old_l1_tag){printf("eviction!"); l1_tlb[old_l1_index].v = INVALID; }\
-//             putchar('\n');\
-//         } \
-//     } while(0)
-
-#define INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES) \
+#define MASK4 15
+#define MASK2 3
+#define INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES, L1_TLB_LINES_BITS) \
     do { \
         /*Get the previous entry in L2 TLB*/\
         l2_tlb_entry_t old_entry = l2_tlb[index];\
         if(old_entry.v == VALID){ \
             /*Convert l2 entry tag and index into l1 entry tag and index*/\
-            uint8_t old_l1_index = index & 15;\
-            uint32_t old_l1_tag = (old_entry.tag << 2) | ((index & 48) >> 4);\
-            \
+            uint8_t old_l1_index = index & MASK4 ;\
+            uint32_t old_l1_tag = (old_entry.tag << (L2_TLB_LINES_BITS - L1_TLB_LINES_BITS));\
+            old_l1_tag |= (index >> L1_TLB_LINES_BITS) & MASK2;\
             /*Search the l1 tlb and invalidate if tag matches*/\
             if(l1_tlb[old_l1_index].tag == old_l1_tag){ l1_tlb[old_l1_index].v = INVALID; }\
         } \
@@ -369,11 +286,11 @@ int tlb_search( const void * mem_space,
             switch (access)
             {
             case INSTRUCTION:
-                INSERT_L2_AND_INVALIDATE_L1(l1_dtlb, L1_DTLB_LINES);
+                INSERT_L2_AND_INVALIDATE_L1(l1_dtlb, L1_DTLB_LINES, L1_DTLB_LINES_BITS);
                 INSERT(l1_itlb_entry_t, L1_ITLB, L1_ITLB_LINES, l1_itlb);
                 break;
             case DATA:
-                INSERT_L2_AND_INVALIDATE_L1(l1_itlb, L1_ITLB_LINES);
+                INSERT_L2_AND_INVALIDATE_L1(l1_itlb, L1_ITLB_LINES, L1_ITLB_LINES_BITS);
                 INSERT(l1_dtlb_entry_t, L1_DTLB, L1_DTLB_LINES, l1_dtlb);
                 break;
             default:

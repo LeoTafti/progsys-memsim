@@ -110,7 +110,7 @@ void pop_front(list_t* this) {
 }
 
 void move_back(list_t* this, node_t* node) {
-  // would be better to check contains but
+  // would be more rigourous to check contains but
   // too costly and can't signal error with this signature
   if(this != NULL && node != NULL) {
     if(node->next != NULL) { // nothing to be done if it is already at the back
@@ -140,7 +140,7 @@ int print_list(FILE* stream, const list_t* this) {
     }
   }
   fputc(')', stream);
-  return count+2; // account for the parentheses
+  return count+2; // account for the parenthesis
 }
 
 int print_reverse_list(FILE* stream, const list_t* this){
@@ -157,5 +157,5 @@ int print_reverse_list(FILE* stream, const list_t* this){
     }
   }
   fputc(')', stream);
-  return count+2; // account for the parentheses
+  return count+2; // account for the parenthesis
 }
