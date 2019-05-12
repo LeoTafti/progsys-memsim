@@ -271,29 +271,43 @@ int tlb_entry_init( const virt_addr_t * vaddr,
         uint8_t index = index_from_tag_and_index(tag_and_index, L2_TLB_LINES); \
         \
         /*If l2 entry was also in the other l1 tlb, invalidate it*/ \
-        INVALIDATE_IF_NECESSARY(l1_tlb, L1_DTLB_LINES); \
+        INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES); \
         \
-        /*Finally, insert the new entry both in the L2 and the INSTRUCTION tlbs*/ \
+        /*Finally, insert the new entry in the L2*/ \
         tlb_insert(index, &new_entry, l2_tlb, L2_TLB); \
     } while(0)
 
+
+// #define INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES) \
+//     do { \
+//         /*Get the previous entry in L2 TLB*/\
+//         l2_tlb_entry_t old_entry = l2_tlb[index];\
+//         if(old_entry.v == VALID){ \
+//             /*Concat the l2 entry tag and index*/\
+//             uint64_t old_l2_tag_and_index = (old_entry.tag << L2_TLB_LINES_BITS) | index;\
+//             \
+//             /*Split again into l1 entry tag and index*/\
+//             uint32_t old_l1_tag = tag_from_tag_and_index(old_l2_tag_and_index, L1_TLB_LINES);\
+//             uint8_t old_l1_index = index_from_tag_and_index(old_l2_tag_and_index, L1_TLB_LINES);\
+//             \
+//             /*Search the l1 tlb and invalidate if tag matches*/\
+//             printf("evicting index %d in %s:", old_l1_index, l1_tlb == l1_itlb? "ITLB" : "DTLB");\
+//             if(l1_tlb[old_l1_index].tag == old_l1_tag){printf("eviction!"); l1_tlb[old_l1_index].v = INVALID; }\
+//             putchar('\n');\
+//         } \
+//     } while(0)
 
 #define INVALIDATE_IF_NECESSARY(l1_tlb, L1_TLB_LINES) \
     do { \
         /*Get the previous entry in L2 TLB*/\
         l2_tlb_entry_t old_entry = l2_tlb[index];\
         if(old_entry.v == VALID){ \
-            /*Concat the l2 entry tag and index*/\
-            uint64_t old_l2_tag_and_index = (old_entry.tag << L2_TLB_LINES_BITS) | index;\
-            \
-            /*Split again into l1 entry tag and index*/\
-            uint32_t old_l1_tag = tag_from_tag_and_index(old_l2_tag_and_index, L1_TLB_LINES);\
-            uint8_t old_l1_index = index_from_tag_and_index(old_l2_tag_and_index, L1_TLB_LINES);\
+            /*Convert l2 entry tag and index into l1 entry tag and index*/\
+            uint8_t old_l1_index = index & 15;\
+            uint32_t old_l1_tag = (old_entry.tag << 2) | (index & 48);\
             \
             /*Search the l1 tlb and invalidate if tag matches*/\
-            printf("evicting index %d in %s:", old_l1_index, l1_tlb == l1_itlb? "ITLB" : "DTLB");\
-            if(l1_tlb[old_l1_index].tag == old_l1_tag){printf("eviction!"); l1_tlb[old_l1_index].v = INVALID; }\
-            putchar('\n');\
+            if(l1_tlb[old_l1_index].tag == old_l1_tag){ l1_tlb[old_l1_index].v = INVALID; }\
         } \
     } while(0)
 
