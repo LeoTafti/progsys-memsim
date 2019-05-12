@@ -77,6 +77,10 @@ test: test-addr test-commands test-memory test-list test-tlb_simple test-tlb_hrc
 	#./tests/09.basic.sh
 	@echo " +++++++ DONE +++++++"
 
+test-tlb: test-tlb_hrchy
+	./test-tlb_hrchy tests/files/commands02.txt tests/files/memory-dump-01.mem resultat.txt
+
+
 # ----------------------------------------------------------------------
 # This part is to make your life easier. See handouts how to make use of it.
 
