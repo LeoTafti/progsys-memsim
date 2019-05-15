@@ -10,6 +10,7 @@
 #include "util.h"
 #include "cache_mng.h"
 #include "addr_mng.h"
+#include "lru.h"
 
 #include <inttypes.h> // for PRIx macros
 
@@ -123,11 +124,36 @@ int cache_hit (const void * mem_space,
  * @param cache_type to distinguish between different caches
  * @return error code
  */
+#define INSERT(lines, ways, type) \
+    do{ \
+      M_REQUIRE(cache_line_index < lines, "%s", "line doesn't exist in this cache"); \
+      M_REQUIRE(cache_way < ways, "%s", "way doesn't exist in this cache"); \
+      \
+      cache_entry(cache_type, ways, cache_line_index, cache_way) = (type*) cache_line_in; \
+      } while(0)
+
 int cache_insert(uint16_t cache_line_index,
                  uint8_t cache_way,
                  const void * cache_line_in,
                  void * cache,
                  cache_t cache_type);
+{
+  M_REQUIRE_NON_NULL(cache_line_in);
+  M_REQUIRE_NON_NULL(cache);
+
+  switch(cache_type){
+    case L1_ICACHE: INSERT(L1_ICACHE_LINES, L1_ICACHE_WAYS, l1_icache_entry_t);
+      break;
+    case L1_DCACHE:INSERT(L1_DCACHE_LINES, L1_DCACHE_WAYS, l1_dcache_entry_t);
+      break;
+    case L2_CACHE: INSERT(L2_CACHE_LINES, L2_CACHE_WAYS, l2_cache_entry_t);
+      break;
+    default: M_EXIT_ERR(ERR_BAD_PARAMETER, "s", "Unrecognized cache type");
+  }
+
+}
+
+#undef INSERT
 
 //=========================================================================
 /**
@@ -163,7 +189,7 @@ int cache_entry_init(const void * mem_space,
     M_REQUIRE_NON_NULL(mem_space);
     M_REQUIRE_NON_NULL(paddr);
     M_REQUIRE_NON_NULL(cache_entry);
-    
+
     switch(cache_type){
         case L1_ICACHE:
             INIT(paddr, l1_icache_entry_t, L1_ICACHE_TAG_REMAINING_BITS, L1_ICACHE_LINES, L1_ICACHE_WORDS_PER_LINE);
