@@ -32,6 +32,9 @@
 #define L2_CACHE_TAG_REMAINING_BITS   13 // 2(select byte) + 2(select word) + 9(select line)
 #define L2_CACHE_TAG_BITS             19 // 32 - L1_ICACHE_TAG_REMAINING_BITS
 
+#define VALID 1
+#define INVALID 0
+
 /**
  * L1 ICACHE, L1 DCACHE:
  *  - byte addressing
@@ -65,15 +68,6 @@
  *      in L2, then it is fetched from main memory and placed just in L1 and not
  *      in L2.
  *
- */
-
-/* TODO WEEK 11:
- * Définir ici les types :
- *    - l1_icache_entry_t;
- *    - l1_dcache_entry_t;
- *    - l2_cache_entry_t;
- *    - et cache_t;
- * (et supprimer ces huit lignes de commentaire).
  */
 
 typedef struct{

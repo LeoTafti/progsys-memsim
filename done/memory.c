@@ -278,11 +278,6 @@ int mem_init_from_description(const char* master_filename,
 
   /*** WRITE DATA PAGES ***/
 	while(fscanf(f, "%lx %s", &vaddr64, filename) == 2 && !feof(f)) {
-		//FIXME: This check fails for some reason,
-    // but if we don't do it everything works fine (make check passes... find out why / how to do it properly ?)
-    // paul - the problem is an EOF because the last line doesnt have a \n so scnaf return -1
-    // anyway it was very weird to first fgets(newline) and then fscanf(f)
-
 		if((err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr)) != ERR_NONE) {
       		fclose(f);
       		return err;

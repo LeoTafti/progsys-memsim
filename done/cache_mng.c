@@ -139,6 +139,23 @@ int cache_insert(uint16_t cache_line_index,
  * @param cache_type to distinguish between different caches
  * @return error code
  */
+#define INIT(paddr, cache_entry_type, CACHE_TAG_REMAINING_BITS, CACHE_LINE, CACHE_WORDS_PER_LINE)\
+    do{\
+        uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);\
+        uint32_t tag = paddr_32b >> CACHE_TAG_REMAINING_BITS;\
+        \
+        cache_entry_type* entry = (cache_entry_type*)cache_entry;\
+        entry->v = VALID;\
+        entry->age = 0;\
+        entry->tag = tag;\
+        \
+        /*Initialize the cache entry line by fetching from memory*/\
+        uint32_t word_addr = (paddr_32b / CACHE_LINE) * CACHE_WORDS_PER_LINE;\
+        for(size_t i = 0; i < CACHE_WORDS_PER_LINE; i++){\
+            entry->line[i] = ((word_t*)mem_space)[word_addr+i];\
+        }\
+    }while(0)
+
 int cache_entry_init(const void * mem_space,
                      const phy_addr_t * paddr,
                      void * cache_entry,
@@ -147,11 +164,23 @@ int cache_entry_init(const void * mem_space,
     M_REQUIRE_NON_NULL(paddr);
     M_REQUIRE_NON_NULL(cache_entry);
     
-    uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);
-    //TODO : complete !
-    return 0;
+    switch(cache_type){
+        case L1_ICACHE:
+            INIT(paddr, l1_icache_entry_t, L1_ICACHE_TAG_REMAINING_BITS, L1_ICACHE_LINES, L1_ICACHE_WORDS_PER_LINE);
+            break;
+        case L1_DCACHE:
+            INIT(paddr, l1_dcache_entry_t, L1_DCACHE_TAG_REMAINING_BITS, L1_DCACHE_LINES, L1_DCACHE_WORDS_PER_LINE);            break;
+            break;
+        case L2_CACHE:
+            INIT(paddr, l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS, L2_CACHE_LINES, L2_CACHE_WORDS_PER_LINE);
+            break;
+        default :
+            M_EXIT_ERR(ERR_BAD_PARAMETER, "s", "Unrecognized cache type");
+    }
+    return ERR_NONE;
 }
 
+#undef INIT
 //=========================================================================
 /**
  * @brief Ask cache for a word of data.
