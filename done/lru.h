@@ -15,8 +15,8 @@
     for_way(w, WAYS) { \
       if(w == WAY_INDEX) cache_age(TYPE, WAYS, LINE_INDEX, w) = 0; \
       else { \
-        uint8_t* age = &cache_age(TYPE, WAYS, LINE_INDEX, w); \
-        if(*age < (WAYS-1)) (*age)++; \
+        (TYPE*) cache_entry = cache_entry(TYPE, WAYS, LINE_INDEX, w); \
+        if(cache_entry->age < (WAYS-1)) (cache_entry->age)++; \
       } \
     } \
   } while(0) \
@@ -33,8 +33,8 @@
       if(w = WAY_INDEX) cache_age(TYPE, WAYS, LINE_INDEX, WAY_INDEX) = 0;
       /* increment if age is smaller than threshold */ \
       else { \
-        uint8_t* age = &cache_age(TYPE,WAYS, LINE_INDEX, w); \
-        if(*age < thresh) (*age)++; \
+        (TYPE*) cache_entry = cache_entry(TYPE,WAYS, LINE_INDEX, w); \
+        if(cache_entry->age < thresh) (cache_entry->age)++; \
       } \
     } \
   } while(0) \
