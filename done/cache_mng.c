@@ -13,6 +13,7 @@
 #include "lru.h"
 
 #include <inttypes.h> // for PRIx macros
+#include <string.h> // for memset
 
 //=========================================================================
 #define PRINT_CACHE_LINE(OUTFILE, TYPE, WAYS, LINE_INDEX, WAY, WORDS_PER_LINE) \
@@ -76,6 +77,13 @@ int cache_dump(FILE* output, const void* cache, cache_t cache_type)
     return ERR_NONE;
 }
 
+static inline uint32_t tag_from_paddr_32b(uint32_t paddr_32b, uint8_t cache_tag_remaining_bits){
+    return paddr_32b >> cache_tag_remaining_bits;
+}
+static inline uint16_t index_from_paddr_32b(uint32_t paddr_32b, uint16_t cache_line_bytes, uint16_t cache_lines){
+    return (paddr_32b / cache_line_bytes) % cache_lines;
+}
+
 //=========================================================================
 /**
  * @brief Clean a cache (invalidate, reset...).
@@ -85,7 +93,29 @@ int cache_dump(FILE* output, const void* cache, cache_t cache_type)
  * @param cache_type an enum to distinguish between different caches
  * @return error code
  */
-int cache_flush(void *cache, cache_t cache_type);
+#define FLUSH(cache_entry_type, CACHE_LINE, CACHE_WAYS)\
+    (void)memset(cache, 0, CACHE_LINE * CACHE_WAYS * sizeof(cache_entry_type))
+
+int cache_flush(void *cache, cache_t cache_type){
+    M_REQUIRE_NON_NULL(cache);
+
+    switch(cache_type){
+        case L1_ICACHE:
+            FLUSH(l1_icache_entry_t, L1_ICACHE_LINE, L1_ICACHE_WAYS);
+            break;
+        case L1_DCACHE:
+            FLUSH(l1_dcache_entry_t, L1_DCACHE_LINE, L1_DCACHE_WAYS);
+            break;
+        case L2_CACHE:
+            FLUSH(l2_cache_entry_t, L2_CACHE_LINE, L2_CACHE_WAYS);
+            break;
+        default:
+            M_EXIT_ERR(ERR_BAD_PARAMETER, "%s", "Unrecognized cache type");
+    }
+    return ERR_NONE;
+}
+
+#undef FLUSH
 
 //=========================================================================
 /**
@@ -105,13 +135,64 @@ int cache_flush(void *cache, cache_t cache_type);
  * @return error code
  */
 
+#define HIT(cache_entry_type, CACHE_LINE, CACHE_LINES, CACHE_WAYS, CACHE_TAG_REMAINING_BITS)\
+    do{\
+        uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);\
+        uint16_t line_index = index_from_paddr_32b(paddr_32b, CACHE_LINE, CACHE_LINES);\
+        uint32_t tag = tag_from_paddr_32b(paddr_32b, CACHE_TAG_REMAINING_BITS);\
+        \
+        foreach_way(way, CACHE_WAYS){\
+            cache_entry_type* entry = cache_entry(cache_entry_type, CACHE_WAYS, line_index, way);\
+            if(entry->v == INVALID){\
+                LRU_age_increase(cache_entry_type, CACHE_WAYS, way, line_index);\
+                /*Rest of the cold start is handled like a miss outside of the foreach_way loop*/\
+                break;\
+            }else if(entry->tag == tag){\
+                *hit_way = way;\
+                *hit_index = line_index;\
+                *p_line = cache_line(cache_entry_type, CACHE_WAYS, line_index, way);\
+                LRU_age_update(cache_entry_type, CACHE_WAYS, way, line_index);\
+                return ERR_NONE;\
+            }\
+        }\
+        \
+        /*Cold start or regular miss*/\
+        *hit_way = HIT_WAY_MISS;\
+        *hit_index = HIT_INDEX_MISS;\
+        \
+    } while(0)
+
 int cache_hit (const void * mem_space,
                void * cache,
                phy_addr_t * paddr,
                const uint32_t ** p_line,
                uint8_t *hit_way,
                uint16_t *hit_index,
-               cache_t cache_type);
+               cache_t cache_type){
+    M_REQUIRE_NON_NULL(mem_space);
+    M_REQUIRE_NON_NULL(cache);
+    M_REQUIRE_NON_NULL(paddr);
+    M_REQUIRE_NON_NULL(p_line);
+    M_REQUIRE_NON_NULL(hit_way);
+    M_REQUIRE_NON_NULL(hit_index);
+
+    switch(cache_type){
+        case L1_ICACHE:
+            HIT(l1_icache_entry_t, L1_ICACHE_LINE, L1_ICACHE_LINES, L1_ICACHE_WAYS, L1_ICACHE_TAG_REMAINING_BITS);
+            break;
+        case L1_DCACHE:
+            HIT(l1_dcache_entry_t, L1_DCACHE_LINE, L1_DCACHE_LINES, L1_DCACHE_WAYS, L1_DCACHE_TAG_REMAINING_BITS);
+            break;
+        case L2_CACHE:
+            HIT(l2_cache_entry_t, L2_CACHE_LINE, L2_CACHE_LINES, L2_CACHE_WAYS, L2_CACHE_TAG_REMAINING_BITS);
+            break;
+        default:
+            M_EXIT_ERR(ERR_BAD_PARAMETER, "%s", "Unrecognized cache type");
+    }
+    return ERR_NONE;
+}
+
+#undef HIT
 
 //=========================================================================
 /**
@@ -124,32 +205,38 @@ int cache_hit (const void * mem_space,
  * @param cache_type to distinguish between different caches
  * @return error code
  */
-#define INSERT(lines, ways, type) \
+#define INSERT(cache_entry_type, CACHE_LINES, CACHE_WAYS) \
     do{ \
-      M_REQUIRE(cache_line_index < lines, "%s", "line doesn't exist in this cache"); \
-      M_REQUIRE(cache_way < ways, "%s", "way doesn't exist in this cache"); \
-      \
-      cache_entry(cache_type, ways, cache_line_index, cache_way) = (type*) cache_line_in; \
-      } while(0)
+        M_REQUIRE(cache_line_index < CACHE_LINES, "%s", "line doesn't exist in this cache"); \
+        M_REQUIRE(cache_way < CACHE_WAYS, "%s", "way doesn't exist in this cache"); \
+        \
+        cache_entry_type* new_entry = (cache_entry_type*) cache_line_in;\
+        *cache_entry(cache_entry_type, CACHE_WAYS, cache_line_index, cache_way) = *new_entry; \
+    } while(0)
 
 int cache_insert(uint16_t cache_line_index,
                  uint8_t cache_way,
                  const void * cache_line_in,
                  void * cache,
-                 cache_t cache_type);
-{
-  M_REQUIRE_NON_NULL(cache_line_in);
-  M_REQUIRE_NON_NULL(cache);
+                 cache_t cache_type){
+    M_REQUIRE_NON_NULL(cache_line_in);
+    M_REQUIRE_NON_NULL(cache);
 
-  switch(cache_type){
-    case L1_ICACHE: INSERT(L1_ICACHE_LINES, L1_ICACHE_WAYS, l1_icache_entry_t);
-      break;
-    case L1_DCACHE:INSERT(L1_DCACHE_LINES, L1_DCACHE_WAYS, l1_dcache_entry_t);
-      break;
-    case L2_CACHE: INSERT(L2_CACHE_LINES, L2_CACHE_WAYS, l2_cache_entry_t);
-      break;
-    default: M_EXIT_ERR(ERR_BAD_PARAMETER, "s", "Unrecognized cache type");
-  }
+    switch(cache_type){
+        case L1_ICACHE:
+            INSERT(l1_icache_entry_t, L1_ICACHE_LINES, L1_ICACHE_WAYS);
+            break;
+        case L1_DCACHE:
+            INSERT(l1_dcache_entry_t, L1_DCACHE_LINES, L1_DCACHE_WAYS);
+            break;
+        case L2_CACHE:
+            INSERT(l2_cache_entry_t, L2_CACHE_LINES, L2_CACHE_WAYS);
+            break;
+        default:
+            M_EXIT_ERR(ERR_BAD_PARAMETER, "s", "Unrecognized cache type");
+    }
+
+    return ERR_NONE;
 
 }
 
@@ -168,7 +255,7 @@ int cache_insert(uint16_t cache_line_index,
 #define INIT(paddr, cache_entry_type, CACHE_TAG_REMAINING_BITS, CACHE_LINE, CACHE_WORDS_PER_LINE)\
     do{\
         uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);\
-        uint32_t tag = paddr_32b >> CACHE_TAG_REMAINING_BITS;\
+        uint32_t tag = tag_from_paddr_32b(paddr_32b, CACHE_TAG_REMAINING_BITS);\
         \
         cache_entry_type* entry = (cache_entry_type*)cache_entry;\
         entry->v = VALID;\
@@ -195,18 +282,19 @@ int cache_entry_init(const void * mem_space,
             INIT(paddr, l1_icache_entry_t, L1_ICACHE_TAG_REMAINING_BITS, L1_ICACHE_LINES, L1_ICACHE_WORDS_PER_LINE);
             break;
         case L1_DCACHE:
-            INIT(paddr, l1_dcache_entry_t, L1_DCACHE_TAG_REMAINING_BITS, L1_DCACHE_LINES, L1_DCACHE_WORDS_PER_LINE);            break;
+            INIT(paddr, l1_dcache_entry_t, L1_DCACHE_TAG_REMAINING_BITS, L1_DCACHE_LINES, L1_DCACHE_WORDS_PER_LINE);
             break;
         case L2_CACHE:
             INIT(paddr, l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS, L2_CACHE_LINES, L2_CACHE_WORDS_PER_LINE);
             break;
         default :
-            M_EXIT_ERR(ERR_BAD_PARAMETER, "s", "Unrecognized cache type");
+            M_EXIT_ERR(ERR_BAD_PARAMETER, "%s", "Unrecognized cache type");
     }
     return ERR_NONE;
 }
 
 #undef INIT
+
 //=========================================================================
 /**
  * @brief Ask cache for a word of data.
