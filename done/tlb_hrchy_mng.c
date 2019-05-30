@@ -35,6 +35,7 @@ static inline uint8_t index_from_tag_and_index(uint64_t tag_and_index, const siz
         } \
     } while(0)
 
+// TODO: use memset instead
 int tlb_flush(void *tlb, tlb_t tlb_type){
     M_REQUIRE_NON_NULL(tlb);
 

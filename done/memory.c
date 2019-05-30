@@ -150,6 +150,8 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 		//Allocate memory
 		*memory = calloc(*mem_capacity_in_bytes, 1);
 
+    // TODO review handling of memory = NULL
+  	// 'correcteur when memory is NULL, it should be detected + file should be closed'
 		size_t bytes_read;
 		if(*memory != NULL){
 			//Initialize the memory from mem_dump file
@@ -243,18 +245,22 @@ int mem_init_from_description(const char* master_filename,
 	error_code err = ERR_NONE;
 
 	// PGD
+  // TODO 'lecture PGD filename -1'
+
 	if(fscanf(f, "%s", filename) != 1){
 		fclose(f); return ERR_IO;
 	}
 
 	if((err = init_phy_addr(&paddr, 0, 0)) != ERR_NONE) { //PGD starts at phy addr. 0
-    	fclose(f); return err;
-  	}
+  	fclose(f); return err;
+	}
 	if(page_file_read(&paddr, filename, *memory, *mem_capacity_in_bytes) != ERR_NONE){
-    	fclose(f); return ERR_IO;
-  	}
+  	fclose(f); return ERR_IO;
+	}
 
   // OTHER TRANSLATION PAGES
+  // TODO : ' lecture PUD: fails most of the tests, check memory error with valgrind', -3
+
 	int nb_pages;
 	if(fscanf(f, "%d", &nb_pages) != 1){
 		fclose(f); return ERR_IO;
@@ -277,6 +283,7 @@ int mem_init_from_description(const char* master_filename,
   	}
 
   /*** WRITE DATA PAGES ***/
+  // TODO : 'lecture pages data' -2
 	while(fscanf(f, "%lx %s", &vaddr64, filename) == 2 && !feof(f)) {
 		if((err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr)) != ERR_NONE) {
       		fclose(f);

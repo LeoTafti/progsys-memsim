@@ -14,6 +14,8 @@
 #include "page_walk.h"
 #include "error.h"
 
+
+// TODO: use memeset
 int tlb_flush(tlb_entry_t * tlb) {
   M_REQUIRE_NON_NULL(tlb);
   for(size_t i = 0; i < TLB_LINES; i++) {
@@ -33,7 +35,7 @@ int tlb_hit(const virt_addr_t * vaddr,
     return MISS;
   }
 
-  uint64_t tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
+  uint64_t tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET; // TODO use to_virtual_page_number
   node_t* m = NULL;
 
   for_all_nodes_reverse(n, replacement_policy->ll) {
@@ -62,6 +64,7 @@ int tlb_insert( uint32_t line_index,
                 tlb_entry_t * tlb) {
   M_REQUIRE_NON_NULL(tlb_entry);
   M_REQUIRE_NON_NULL(tlb);
+  // TODO check line index
 
   tlb[line_index] = *tlb_entry;
 
@@ -75,6 +78,7 @@ int tlb_entry_init( const virt_addr_t * vaddr,
   M_REQUIRE_NON_NULL(paddr);
   M_REQUIRE_NON_NULL(tlb_entry);
 
+  // TODO use virt_addr_t_to_virtual_page_number
   tlb_entry->v = VALID;
   tlb_entry->tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
   tlb_entry->phy_page_num = paddr->phy_page_num;
@@ -106,10 +110,11 @@ int tlb_search( const void * mem_space,
       //init tlb_entry
       tlb_entry_t new_entry;
       tlb_entry_init(vaddr, paddr, &new_entry);
+      // TODO check errors here
 
       //insert in tlb at the front's line index
       node_t* lru = replacement_policy->ll->front;
-      tlb[lru->value] = new_entry;
+      tlb[lru->value] = new_entry; // TODO use tlb_insert
 
       //set mru position
       replacement_policy->move_back(replacement_policy->ll, lru);

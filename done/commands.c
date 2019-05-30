@@ -50,6 +50,7 @@ int program_free(program_t* program){
 
 static int program_enlarge(program_t* program);
 int program_add_command(program_t* program, command_t const * command) {
+	// TODO -1 @ second grading
 	M_REQUIRE_NON_NULL(program);
 	M_REQUIRE_NON_NULL(command);
 
@@ -257,7 +258,7 @@ int program_read(const char* filename, program_t* program){
  * @param str_len the length of the string (char array)
  * @return the length of the string (command) read
  */
-static int read_command_line(FILE* input, char* str, size_t str_len){
+static int read_command_line(FILE* input, char* str, size_t str_len){ // TODO -1 @ second grading
 	fgets(str, str_len, input);
 
 	int len_read = strlen(str) - 1;
@@ -285,7 +286,7 @@ static int next_word(char* str, char* read, size_t read_len, unsigned int* index
 	while(*index < str_len && isspace(str[*index])){
 		(*index)++;
 	}
-	
+
 	// reads only in cases it needs to. Empty fields are not read -> error
 	M_EXIT_IF(*index == str_len, ERR_BAD_PARAMETER, "%s",
 						"Reached end of string, but expected more (presumably wrong command format)");
