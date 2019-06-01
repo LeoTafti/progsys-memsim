@@ -331,7 +331,7 @@ static int find_oldest_way( void const * const cache,
 
 #undef FIND_EMPTY
 
-#define CACHE_LINE_INDEX(LINE_BITS)
+#define CACHE_LINE_INDEX(LINE_BITS) \
   do { \
     int line_bits_mask = (1 << LINE_BITS) - 1; \
     return (paddr >> 4) & line_bits_mask; \
@@ -422,6 +422,8 @@ static void* evict(void const * const cache,
   }
 }
 
+#undef EVICT
+
 // TODO used functions for the others, should we do one for this one too?
 // depends on if we need it again i guess
 # def FIND(cache, cache_type) \
@@ -462,7 +464,6 @@ int cache_read(const void * mem_space,
                uint32_t * word,
                cache_replace_t replace) {
 /* vérification d'usage (addresse aligned) */
-
   M_REQUIRE_NON_NULL(mem_space);
   M_REQUIRE_NON_NULL(paddr);
   M_REQUIRE(paddr->offset % 4 == 0, ERR_BAD_PARAMETER, "%s", "paddr should be word aligned");
@@ -471,12 +472,11 @@ int cache_read(const void * mem_space,
   M_REQUIRE_NON_NULL(word);
 
   int err = ERR_NONE;
-/* L1-hit? */
+/* ================================================================== L1-hit? */
   uint32_t* line;
   uint8_t hit_way;
   uint16_t hit_line;
 
-// TODO if we check that access is a correct entry we could use ternary operators instead of switch
   switch(access){
     case INSTRUCTION:
       FIND(l1_cache, L1_ICACHE);
@@ -493,82 +493,111 @@ int cache_read(const void * mem_space,
     return err;
   }
 
-/*  L2 hit? */
+/* ================================================================== L2-hit? */
   // TODO we dont really need the cache entry here, the line would be enough
   l2_cache_entry_t* l2_entry = malloc(sizeof(l2_cache_entry_t*));
-  M_REQUIRE_NON_NULL(l2_entry, "%s", "allocation failed for l2_cache_entry during search");
+  M_REQUIRE_NON_NULL(l2_entry, "%s", "allocation failed during search");
   FIND(l2_cache, L2_CACHE);
+  // L2 HIT
   if(hit_way != HIT_WAY_MISS && hit_line != HIT_INDEX_MISS) {
-  /* L2 hit: get line
-             invalidate L2 cache entry
-  */
+    //get line
     l2_entry = cache_entry(l2_cache_entry_t, L2_CACHE_WAYS, line, way);
+    //invalidate L2 cache entry
     cache_valid(l2_cache_entry_t, L2_CACHE_WAYS, line, way) = INVALID;
   }
+  // L2 MISS
   else {
-  /* L2 miss: fetch in main mem
-  */
-
-    M_REQUIRE( ERR_NONE == cache_entry_init(mem_space, paddr, cache_entry, L2_CACHE),
-                "%s", "Failed to initiate a L2_CACHE entry");
+    //fetch in main mem
+    err =  cache_entry_init(mem_space, paddr, cache_entry, L2_CACHE);
+    M_REQUIRE( err == ERR_NONE, "%s", "Failed to initiate a L2_CACHE entry");
     // NOTE: using an L2 entry induces an unnecessary conversion to l1_*cache_entry_t
     // but allows to write a single macro to update L1
     // thoughts : use another macro to convert from L2 entry to L1
     // and write the UPDATEL1 macro with an adapted cache entry type?
-
   }
-  /* L2 search:
-     get word
-     update corresponding L1
-  */
+
+  /* ================================================================ get word*/
   word = cache_entry->line[hit_index]
-  switch(access){
+
+  /* ========================================================= eviction policy*/
+  /*
+-CURRENT:
+  if L1 has free space
+    insert mainmem L1
+  else
+    evict L1
+    insert mainmem L1
+    if l2 has free space
+      insert evicted1 L2
+    else
+      evict L2
+      insert evicted1 L2
+
+-LESS CODE DUPLICATION: objective
+  if !L1 has free space
+      evict L1
+      if !l2 has free space
+          evict L2
+          insert evicted1 L2
+      insert evicted1 L2
+  insert mainmem L1
+  */
+  uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);
+  switch(access){ // TODO MACROIFY pour plus de plaisir
     case INSTRUCTION:
 
-      uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);
       l1_icache_entry_t* l1_entry = CONVERT(l2_entry, L2_CACHE, L1_ICACHE, paddr_32b);
 
       // is there space in L1?
       line_index = line_index_from_paddr32(paddr_32b, L1_ICACHE);
       int empty = 0;
       way = find_oldest_way(l1_cache, L1_ICACHE, line_index, &empty);
-      if(!empty) {
-      /*  evict (but save) with replacement policy
-          insert at this index
-          update age
-          L2 space? goto * for L2 and the evicted data */
-        l1_icache_entry_t* evicted = evict(l1_cache, L1_ICACHE, line, way);
 
-        l2_cache_entry_t* l2_evicted_entry = malloc(sizeof(l1_icache_entry_t*));
-        M_REQUIRE_NON_NULL(l1_entry, "%s", "allocation failed for l2_cache_entry during search");
-        // TODO duplication with init? this is basically copy paste
-        // but it is not very convinient to change the macro above as it uses 'local' variables
-        // use a function?
-        tag = tag_from_paddr_32b(paddr_32b, L2_CACHE_TAG_REMAINING_BITS);
-
-        l2_evicted_entry->v = VALID;
-        l2_evicted_entry->age = 0;
-        l2_evicted_entry->tag = tag;
-        l2_evicted_entry->lines = evicted->lines;
-
-        line_index = line_index_from_paddr32(paddr_32b, L2_CACHE);
-        way = find_oldest_way(l1_cache, L1_ICACHE, line_index, &empty);
-
-
+      if(empty) {
+        cache_insert(line_index, way, l1_entry, l1_cache, L1_ICACHE);
+        LRU_age_increase(L1_ICACHE, L1_ICACHE_WAYS, way, line_index);
       }
-      cache_insert(line_index, way, l1_entry, l1_cache, L1_ICACHE);
-      LRU_age_increase(L1_ICACHE, L1_ICACHE_WAYS, way, line_index);
+      else {
+        //evict (but save) with replacement policy
+        l1_icache_entry_t* evicted = evict(l1_cache, L1_ICACHE, line_index, way);
+        // insert at this index
+        cache_insert(line_index, way, l1_entry, l1_cache, L1_ICACHE);
+        //update age
+        LRU_age_increase(L1_ICACHE, L1_ICACHE_WAYS, way, line_index);
 
+        /* ========================================== update L2 after eviction*/
+        l2_cache_entry_t* l2_evicted_entry = CONVERT(evicted, L1_ICACHE, L2_CACHE, paddr);
 
-}
+        //L2 space?
+        line_index = line_index_from_paddr32(paddr_32b, L2_CACHE);
+        empty = 0;
+        way = find_oldest_way(l2_cache, L2_CACHE, line_index, &empty);
 
-
+        if(empty){
+          cache_insert(line_index, way, l2_evicted_entry, l2_cache, L2_CACHE);
+          LRU_age_increase(L2_CACHE, L2_CACHE_WAYS, way, line_index);
+        }
+        else {
+          //evict with replacement policy
+          evict(l2_cache, L2_CACHE, line_index, way);
+          //insert at free space
+          cache_insert(line_index, way, l2_evicted_entry, l2_cache, L2_CACHE);
+          //update L2 age
+          LRU_age_increase(L2_CACHE, L2_CACHE_WAYS, way, line_index);
+        }
+      }
     break;
     case DATA:
     break;
-    default:
+    default: M_EXIT(ERR_BAD_PARAMETER, "%s", "access type is ill defined");
+  }
+
+  return ERR_NONE
 }
+
 /*
+GUIDELINES
+https://www.youtube.com/watch?v=eY52Zsg-KVI
 vérification d'usage (addresse aligned)
     L1 hit? get word and return
   - else
@@ -598,9 +627,6 @@ stuff to define:
   evict (should return the held value)
   insert_L
 */
-
-
-
 }
 #undef FIND
 
