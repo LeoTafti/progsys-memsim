@@ -15,6 +15,7 @@
 #define L1_ICACHE_LINE   16u // 16 bytes (4 words) per line
 #define L1_ICACHE_WAYS   4u
 #define L1_ICACHE_LINES  64u  // Do not modify this!
+#define L1_ICACHE_LINE_BITS 6u
 #define L1_ICACHE_TAG_REMAINING_BITS   10 // 2(select byte) + 2(select word) + 6(select line)
 #define L1_ICACHE_TAG_BITS             22 // 32 - L1_ICACHE_TAG_REMAINING_BITS
 
@@ -22,6 +23,7 @@
 #define L1_DCACHE_LINE   L1_ICACHE_LINE
 #define L1_DCACHE_WAYS   L1_ICACHE_WAYS
 #define L1_DCACHE_LINES  L1_ICACHE_LINES
+#define L1_DCACHE_LINE_BITS L1_ICACHE_LINE_BITS
 #define L1_DCACHE_TAG_REMAINING_BITS L1_ICACHE_TAG_REMAINING_BITS
 #define L1_DCACHE_TAG_BITS           L1_ICACHE_TAG_BITS
 
@@ -29,6 +31,7 @@
 #define L2_CACHE_LINE   L1_ICACHE_LINE
 #define L2_CACHE_WAYS   8u
 #define L2_CACHE_LINES  512u  // Do not modify this!
+#define L2_CACHE_LINE_BITS 9u
 #define L2_CACHE_TAG_REMAINING_BITS   13 // 2(select byte) + 2(select word) + 9(select line)
 #define L2_CACHE_TAG_BITS             19 // 32 - L1_ICACHE_TAG_REMAINING_BITS
 

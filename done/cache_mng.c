@@ -145,6 +145,7 @@ int cache_flush(void *cache, cache_t cache_type){
             cache_entry_type* entry = cache_entry(cache_entry_type, CACHE_WAYS, line_index, way);\
             if(entry->v == INVALID){\
                 LRU_age_increase(cache_entry_type, CACHE_WAYS, way, line_index);\
+                /* TODO do we do "et l'on mémorisera se fait pour la suite" */\
                 /*Rest of the cold start is handled like a miss outside of the foreach_way loop*/\
                 break;\
             }else if(entry->tag == tag){\
@@ -209,7 +210,6 @@ int cache_hit (const void * mem_space,
     do{ \
         M_REQUIRE(cache_line_index < CACHE_LINES, "%s", "line doesn't exist in this cache"); \
         M_REQUIRE(cache_way < CACHE_WAYS, "%s", "way doesn't exist in this cache"); \
-        \
         cache_entry_type* new_entry = (cache_entry_type*) cache_line_in;\
         *cache_entry(cache_entry_type, CACHE_WAYS, cache_line_index, cache_way) = *new_entry; \
     } while(0)
@@ -295,6 +295,141 @@ int cache_entry_init(const void * mem_space,
 
 #undef INIT
 
+
+#define FIND_OLDEST(TYPE, WAYS) \
+    do { \
+      foreach_way(way, WAYS) { \
+        if(!cache_valid(TYPE, WAYS, line_index, way)){ empty = 1;  return way;}\
+        int tmp = cache_age(TYPE, WAYS, line_index, way); \
+        if( tmp > max) max = tmp; arg_max = way; \
+      } \
+      return arg_max; \
+    } while(0)
+
+/*@brief find a way with free space
+  @return the way's index if any, -1 otherwise
+ */
+static int find_oldest_way( void const * const cache,
+                            cache_t cache_type,
+                            const int line_index,
+                            int* const empty){
+    int max = -1;
+    int arg_max = 0;
+    switch(cache_type) {
+      case L1_ICACHE:
+        FIND_OLDEST(l1_icache_entry_t, L1_ICACHE_WAYS);
+        break;
+      case L1_DCACHE:
+        FIND_OLDEST(l1_dcache_entry_t, L1_DCACHE_WAYS);
+        break;
+      case L2_CACHE:
+        FIND_OLDEST(l2_cache_entry_t, L2_CACHE_WAYS);
+        break;
+      default: M_EXIT(ERR_BAD_PARAMETER, "%s", "unknown cache type");
+    }
+}
+
+#undef FIND_EMPTY
+
+#define CACHE_LINE_INDEX(LINE_BITS)
+  do { \
+    int line_bits_mask = (1 << LINE_BITS) - 1; \
+    return (paddr >> 4) & line_bits_mask; \
+  } while(0)
+
+static int line_index_from_paddr32( uint32_t paddr, cache_t cache_type) {
+  switch(cache_type) {
+    // TODO we should test this;
+    case L1_ICACHE:
+      CACHE_LINE_INDEX(L1_ICACHE_LINE_BITS);
+      break;
+    case L1_DCACHE:
+      CACHE_LINE_INDEX(L1_DCACHE_LINE_BITS);
+      break;
+    case L2_CACHE:
+      CACHE_LINE_INDEX(L2_CACHE_LINE_BITS);
+      break;
+    default: M_EXIT(ERR_BAD_PARAMETER, "%s", "unknown cache type");
+  }
+}
+#undef CACHE_LINE_INDEX
+
+#def CONVERT(FROM_TYPE, TO_TYPE, TO_TAG_REMAINING_BITS) \
+    do { \
+    cache_cast(TO_TYPE) to_entry = malloc(sizeof(TO_TYPE*)); \
+    M_REQUIRE_NON_NULL(to_entry, "%s", "allocation failed for l2_cache_entry during search"); \
+    uint32_t tag = tag_from_paddr_32b(paddr_32b, TO_TAG_REMAINING_BITS); \
+    to_entry->v = VALID; \
+    to_entry->age = 0; \
+    to_entry->tag = tag; \
+    to_entry->lines = (cache_cast(FROM_TYPE) from)->lines; \
+    return to_entry; \
+  } while(0)
+
+static void* convert(void* from, cache_t from_type, cache_t to_type, const uint32_t paddr_32b) {
+  // TODO: does not hold in general?
+  // simplified because both level of caches have the same line length,
+  // otherwise would need to find the correct cut for the lines
+  // TODO duplication with init? this is basically copy paste
+  // but it is not very convinient to change the macro above as it uses 'local' variables
+
+  switch(from_type){
+    case L1_ICACHE:
+      CONVERT(l1_icache_entry_t, l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS);
+      break;
+    case L1_DCACHE:
+      CONVERT(l1_dcache_entry_t, l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS);
+      break;
+    case L2_CACHE:
+      if(to_type == L1_ICACHE) {
+        CONVERT(l2_cache_entry_t, l1_icache_entry_t, L1_ICACHE_TAG_REMAINING_BITS);
+      }
+      else {
+        CONVERT(l2_cache_entry_t, l1_dcache_entry_t, L1_DCACHE_TAG_REMAINING_BITS);
+      }
+      break;
+    default: M_EXIT(ERR_BAD_PARAMETER, "%s", "unknown cache type");
+  }
+}
+
+
+#define EVICT(TYPE, WAYS, LINE_INDEX, WAY) \
+  do { \
+  cache_cast(TYPE) evicted = cache_entry(TYPE, WAYS, LINE_INDEX, WAY); \
+  evicted->v = INVALID; \
+  return evicted; \
+  } while(0)
+
+static void* evict(void const * const cache,
+                   cache_t type,
+                   const int line,
+                   const int way) {
+
+  switch(cache_type){
+      case L1_ICACHE:
+          l1_icache_entry_t* evicted = cache_entry(l1_icache_entry_t, L1_ICACHE_WAYS, line, way);
+          evicted->v = INVALID;
+          return evicted
+          break;
+      case L1_DCACHE:
+          INIT(paddr, l1_dcache_entry_t, L1_DCACHE_TAG_REMAINING_BITS, L1_DCACHE_LINES, L1_DCACHE_WORDS_PER_LINE);
+          break;
+      case L2_CACHE:
+          INIT(paddr, l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS, L2_CACHE_LINES, L2_CACHE_WORDS_PER_LINE);
+          break;
+      default :
+          return NULL;
+  }
+}
+
+// TODO used functions for the others, should we do one for this one too?
+// depends on if we need it again i guess
+# def FIND(cache, cache_type) \
+    do { \
+      err = cache_hit(mem_space, cache, paddr, &line, &hit_way, &hit_index, cache_type); \
+      M_EXIT_IF(err != ERR_NONE, "%s", "error in chache hit"); \
+    } while(0)
+
 //=========================================================================
 /**
  * @brief Ask cache for a word of data.
@@ -325,7 +460,149 @@ int cache_read(const void * mem_space,
                void * l1_cache,
                void * l2_cache,
                uint32_t * word,
-               cache_replace_t replace);
+               cache_replace_t replace) {
+/* vérification d'usage (addresse aligned) */
+
+  M_REQUIRE_NON_NULL(mem_space);
+  M_REQUIRE_NON_NULL(paddr);
+  M_REQUIRE(paddr->offset % 4 == 0, ERR_BAD_PARAMETER, "%s", "paddr should be word aligned");
+  M_REQUIRE_NON_NULL(l1_cache);
+  M_REQUIRE_NON_NULL(l2_cache);
+  M_REQUIRE_NON_NULL(word);
+
+  int err = ERR_NONE;
+/* L1-hit? */
+  uint32_t* line;
+  uint8_t hit_way;
+  uint16_t hit_line;
+
+// TODO if we check that access is a correct entry we could use ternary operators instead of switch
+  switch(access){
+    case INSTRUCTION:
+      FIND(l1_cache, L1_ICACHE);
+      break;
+    case DATA:
+      FIND(l1_cache, L1_DCACHE);
+      break;
+    default: M_EXIT(ERR_BAD_PARAMETER, "%s", "access type is ill defined");
+  }
+
+  if(hit_way != HIT_WAY_MISS && hit_line != HIT_INDEX_MISS) {
+    // get word and return
+    *word = line[hit_index];
+    return err;
+  }
+
+/*  L2 hit? */
+  // TODO we dont really need the cache entry here, the line would be enough
+  l2_cache_entry_t* l2_entry = malloc(sizeof(l2_cache_entry_t*));
+  M_REQUIRE_NON_NULL(l2_entry, "%s", "allocation failed for l2_cache_entry during search");
+  FIND(l2_cache, L2_CACHE);
+  if(hit_way != HIT_WAY_MISS && hit_line != HIT_INDEX_MISS) {
+  /* L2 hit: get line
+             invalidate L2 cache entry
+  */
+    l2_entry = cache_entry(l2_cache_entry_t, L2_CACHE_WAYS, line, way);
+    cache_valid(l2_cache_entry_t, L2_CACHE_WAYS, line, way) = INVALID;
+  }
+  else {
+  /* L2 miss: fetch in main mem
+  */
+
+    M_REQUIRE( ERR_NONE == cache_entry_init(mem_space, paddr, cache_entry, L2_CACHE),
+                "%s", "Failed to initiate a L2_CACHE entry");
+    // NOTE: using an L2 entry induces an unnecessary conversion to l1_*cache_entry_t
+    // but allows to write a single macro to update L1
+    // thoughts : use another macro to convert from L2 entry to L1
+    // and write the UPDATEL1 macro with an adapted cache entry type?
+
+  }
+  /* L2 search:
+     get word
+     update corresponding L1
+  */
+  word = cache_entry->line[hit_index]
+  switch(access){
+    case INSTRUCTION:
+
+      uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);
+      l1_icache_entry_t* l1_entry = CONVERT(l2_entry, L2_CACHE, L1_ICACHE, paddr_32b);
+
+      // is there space in L1?
+      line_index = line_index_from_paddr32(paddr_32b, L1_ICACHE);
+      int empty = 0;
+      way = find_oldest_way(l1_cache, L1_ICACHE, line_index, &empty);
+      if(!empty) {
+      /*  evict (but save) with replacement policy
+          insert at this index
+          update age
+          L2 space? goto * for L2 and the evicted data */
+        l1_icache_entry_t* evicted = evict(l1_cache, L1_ICACHE, line, way);
+
+        l2_cache_entry_t* l2_evicted_entry = malloc(sizeof(l1_icache_entry_t*));
+        M_REQUIRE_NON_NULL(l1_entry, "%s", "allocation failed for l2_cache_entry during search");
+        // TODO duplication with init? this is basically copy paste
+        // but it is not very convinient to change the macro above as it uses 'local' variables
+        // use a function?
+        tag = tag_from_paddr_32b(paddr_32b, L2_CACHE_TAG_REMAINING_BITS);
+
+        l2_evicted_entry->v = VALID;
+        l2_evicted_entry->age = 0;
+        l2_evicted_entry->tag = tag;
+        l2_evicted_entry->lines = evicted->lines;
+
+        line_index = line_index_from_paddr32(paddr_32b, L2_CACHE);
+        way = find_oldest_way(l1_cache, L1_ICACHE, line_index, &empty);
+
+
+      }
+      cache_insert(line_index, way, l1_entry, l1_cache, L1_ICACHE);
+      LRU_age_increase(L1_ICACHE, L1_ICACHE_WAYS, way, line_index);
+
+
+}
+
+
+    break;
+    case DATA:
+    break;
+    default:
+}
+/*
+vérification d'usage (addresse aligned)
+    L1 hit? get word and return
+  - else
+    L2 hit?
+      L2 hit: update corresponding L1
+              invalidate L2 cache entry
+              get word and return
+      L2 miss: fetch in main mem
+               update corresponding L1
+               get word and return
+
+L2 -> L1 :
+  convert L2 entry to L1 entry
+  compute L1 tag
+  invalidate L2 entry
+  is there space in L1?
+    yes: insert at free space
+         update L1 age (cf cache hit)
+    no: evict (but save) with replacement policy and get index
+        insert at this index
+        update age
+        L2 space? goto * for L2 and the evicted data
+
+stuff to define:
+  update cache ages
+  find_empty
+  evict (should return the held value)
+  insert_L
+*/
+
+
+
+}
+#undef FIND
 
 //=========================================================================
 /**
