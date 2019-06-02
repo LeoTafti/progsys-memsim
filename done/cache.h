@@ -38,6 +38,8 @@
 #define VALID 1
 #define INVALID 0
 
+#define BYTES_PER_WORD 4
+
 /**
  * L1 ICACHE, L1 DCACHE:
  *  - byte addressing

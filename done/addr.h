@@ -30,6 +30,11 @@
 #define PHY_PAGE_NUM    20
 #define PHY_ADDR        32 // = PHY_PAGE_NUM + PAGE_OFFSET
 
+#define WORD_SEL_MASK 3 // = 0b11
+
+#define BYTE_SEL_MASK 3 // = 0b11
+#define BYTE_SEL_BITS 2
+
 typedef uint32_t word_t;
 typedef uint8_t byte_t;
 typedef uint32_t pte_t;

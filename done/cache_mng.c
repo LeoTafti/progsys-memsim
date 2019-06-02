@@ -11,6 +11,8 @@
 #include "cache_mng.h"
 #include "addr_mng.h"
 #include "lru.h"
+#include "cache.h"
+
 
 #include <inttypes.h> // for PRIx macros
 #include <string.h> // for memset
@@ -84,6 +86,7 @@ static inline uint32_t tag_from_paddr_32b(uint32_t paddr_32b, uint8_t cache_tag_
 static inline uint16_t index_from_paddr_32b(uint32_t paddr_32b, uint16_t cache_line_bytes, uint16_t cache_lines){
     return (paddr_32b / cache_line_bytes) % cache_lines;
 }
+
 
 //=========================================================================
 /**
@@ -470,6 +473,7 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
 // depends on if we need it again i guess
 # define FIND(cache, CACHE_TYPE) \
     do { \
+        /*TODO : Léo – Why not use M_EXIT_IF_ERR ?*/ \
       err = cache_hit(mem_space, cache, paddr, &line, &hit_way, &hit_line, CACHE_TYPE); \
       M_EXIT_IF(err != ERR_NONE, err, "%s", "error in chache hit"); \
     } while(0)
@@ -554,13 +558,13 @@ int cache_read(const void * mem_space,
 /* vérification d'usage (addresse aligned) */
   M_REQUIRE_NON_NULL(mem_space);
   M_REQUIRE_NON_NULL(paddr);
-  M_REQUIRE(paddr->page_offset % 4 == 0, ERR_BAD_PARAMETER, "%s", "paddr should be word aligned");
+  M_REQUIRE(paddr->page_offset & BYTE_SEL_MASK == 0, ERR_BAD_PARAMETER, "%s", "Address should be word aligned");
   M_REQUIRE_NON_NULL(l1_cache);
   M_REQUIRE_NON_NULL(l2_cache);
   M_REQUIRE_NON_NULL(word);
 
   //printf("a: into cache read\n");
-  int word_index = paddr->page_offset & 0b11;
+  uint8_t word_index = (paddr->page_offset >> BYTE_SEL_BITS) & WORD_SEL_MASK;
   int err = ERR_NONE;
 /* ================================================================== L1-hit? */
   const uint32_t* line;
@@ -580,13 +584,14 @@ int cache_read(const void * mem_space,
 
   if(hit_way != HIT_WAY_MISS && hit_line != HIT_INDEX_MISS) {
     // get word and return
-    *word = line[hit_line];
+    *word = line[word_index];
     return err;
   }
 
   //printf("c: not a hit\n");
 /* ================================================================== L2-hit? */
   // TODO we dont really need the cache entry here, the line would be enough
+  // Léo – Is the malloc really needed ?
   l2_cache_entry_t* l2_entry = malloc(sizeof(l2_cache_entry_t));
   M_REQUIRE_NON_NULL(l2_entry);
   FIND(l2_cache, L2_CACHE); // TODO this sets 'line', use it instead of l2_entry
@@ -708,13 +713,35 @@ stuff to define:
  * @param replace replacement policy
  * @return error code
  */
+
+
 int cache_read_byte(const void * mem_space,
                     phy_addr_t * p_paddr,
                     mem_access_t access,
                     void * l1_cache,
                     void * l2_cache,
                     uint8_t * p_byte,
-                    cache_replace_t replace){ return ERR_BAD_PARAMETER;}
+                    cache_replace_t replace){
+    
+    M_REQUIRE_NON_NULL(mem_space);
+    M_REQUIRE_NON_NULL(p_paddr);
+    M_REQUIRE_NON_NULL(l1_cache);
+    M_REQUIRE_NON_NULL(l2_cache);
+    M_REQUIRE_NON_NULL(p_byte);
+
+    //Word-align the address
+    phy_addr_t word_aligned = *p_paddr;
+    word_aligned.page_offset = word_aligned.page_offset & (~BYTE_SEL_MASK);
+    uint8_t byte_sel = p_paddr->page_offset & ~BYTE_SEL_MASK;
+    
+    uint32_t word;
+    M_EXIT_IF_ERR(cache_read(mem_space, &word_aligned, access, l1_cache, l2_cache, &word, replace), "Error trying to read the cache");
+
+    //Get the required byte
+    *p_byte = ((uint8_t*)&word)[byte_sel];
+
+    return ERR_NONE;
+}
 
 //=========================================================================
 /**
@@ -729,12 +756,95 @@ int cache_read_byte(const void * mem_space,
  * @param replace replacement policy
  * @return error code
  */
+
+#define WRITE_LINE_IN_MEM(CACHE_WORDS_PER_LINE) \
+    memcpy(&(((word_t*)mem_space)[line_addr]), p_line, CACHE_WORDS_PER_LINE * BYTES_PER_WORD)
+
+//TODO : I think using memcpy is cleaner than the following for loop, what do you say ?
+//It is probably a little slower though, since it works with bytes instead of words (but I'm not even sure about that)
+// for(size_t i = 0; i < L1_DCACHE_WORDS_PER_LINE; i++){
+//     ((word_t*)mem_space)[line_addr+i] = p_line[i];
+// }
+
+#define MODIFY_AND_REINSERT(l_cache, cache_entry_type, CACHE_WAYS, CACHE_WORDS_PER_LINE) \
+do{\
+    /*TODO : This is ultra ugly...*/\
+    void* cache = l_cache;\
+    cache_entry_type* entry = cache_entry(cache_entry_type, CACHE_WAYS, hit_index, hit_way);\
+    \
+    /*Rewrite modified line in cache*/\
+    memcpy(entry->line, p_line, CACHE_WORDS_PER_LINE * BYTES_PER_WORD);\
+    \
+    LRU_age_update(cache_entry_type, CACHE_WAYS, hit_way, hit_index);\
+} while(0)
+
 int cache_write(void * mem_space,
                 phy_addr_t * paddr,
                 void * l1_cache,
                 void * l2_cache,
                 const uint32_t * word,
-                cache_replace_t replace){return ERR_BAD_PARAMETER;}
+                cache_replace_t replace){
+    M_REQUIRE_NON_NULL(mem_space);
+    M_REQUIRE_NON_NULL(paddr);
+    M_REQUIRE_NON_NULL(l1_cache);
+    M_REQUIRE_NON_NULL(l2_cache);
+    M_REQUIRE_NON_NULL(word);
+
+    M_REQUIRE(paddr->page_offset & BYTE_SEL_MASK == 0, ERR_BAD_PARAMETER, "%s", "Address should be word aligned");
+
+    uint8_t word_index = (paddr->page_offset >> BYTE_SEL_BITS) & WORD_SEL_MASK;
+    
+    uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);\
+    uint32_t line_addr = paddr_32b & ~((WORD_SEL_MASK << BYTE_SEL_BITS) | BYTE_SEL_MASK); \
+
+    uint32_t* p_line;
+    uint8_t hit_way;
+    uint16_t hit_index;
+    M_EXIT_IF_ERR(cache_hit(mem_space, l1_cache, paddr, &p_line, &hit_way, &hit_index, L1_DCACHE);, "Error calling cache_hit on l1 data cache");
+    if(hit_way != HIT_WAY_MISS){ //TODO : do we also want to check hit_index != HIT_INDEX_MISS ? Or is this enough ?
+        //TODO : Enoncé says : "lire la ligne correspondante" but isn't it already done by cache_hit ? (and return with p_line)
+
+        //Modify one word of the read line and reinsert it in l1 data cache
+        p_line[word_index] = *word;
+        MODIFY_AND_REINSERT(l1_cache, l1_dcache_entry_t, L1_DCACHE_WAYS, L1_DCACHE_WORDS_PER_LINE);
+        
+        //Write the whole line in memory (write through cache)
+        WRITE_LINE_IN_MEM(L1_DCACHE_WORDS_PER_LINE);
+    }else{
+        M_EXIT_IF_ERR(cache_hit(mem_space, l2_cache, paddr, &p_line, &hit_way, &hit_index, L2_CACHE), "Error calling cache_hit on l2 cache");
+        if(hit_way != HIT_WAY_MISS){
+            p_line[word_index] = *word;\
+            MODIFY_AND_REINSERT(l2_cache, l2_cache_entry_t, L2_CACHE_WAYS, L2_CACHE_WORDS_PER_LINE);
+            
+            // Bring info from l2 to l1 cache, exactly as done in cache read
+            // FIXME: I couldn't find / understand where exactly you did this
+            // so I left it blank here. Copy / call the corresp. macro !
+            // Implement
+
+            WRITE_LINE_IN_MEM(L2_CACHE_WORDS_PER_LINE);
+        }else{
+            //Read (whole) line from memory
+            memcpy(p_line, &(((word_t*)mem_space)[line_addr]), L2_CACHE_WORDS_PER_LINE * BYTES_PER_WORD);
+            
+            //TODO : Same as above in the macros, do we prefer memcpy or for loop ?
+            // for(size_t i = 0; i < L2_CACHE_WORDS_PER_LINE; i++){
+            //   p_line[i] = ((word_t*)mem_space)[line_addr+i];
+            // }
+
+            //Modify word and write back the whole line to main mem.
+            p_line[word_index] = *word;
+            WRITE_LINE_IN_MEM(L2_CACHE_WORDS_PER_LINE);
+
+            //TODO : it is said that we should update the l1 data cache from memory
+            // but I do have the modified line with p_line ? (possibly wrong, but I don't get it)
+            MODIFY_AND_REINSERT(l1_cache, l1_dcache_entry_t, L1_DCACHE_WAYS, L1_DCACHE_WORDS_PER_LINE);
+        }
+    }
+    return ERR_NONE;
+}
+
+#undef WRITE_LINE_IN_MEM
+#undef MODIFY_AND_REINSERT
 
 //=========================================================================
 /**
@@ -753,4 +863,28 @@ int cache_write_byte(void * mem_space,
                      void * l1_cache,
                      void * l2_cache,
                      uint8_t p_byte,
-                     cache_replace_t replace){return ERR_BAD_PARAMETER;}
+                     cache_replace_t replace){
+    M_REQUIRE_NON_NULL(mem_space);
+    M_REQUIRE_NON_NULL(paddr);
+    M_REQUIRE_NON_NULL(l1_cache);
+    M_REQUIRE_NON_NULL(l2_cache);
+
+    //Word align the address and get index of the desired byte
+    phy_addr_t word_aligned = *paddr;
+    word_aligned.page_offset = word_aligned.page_offset & (~BYTE_SEL_MASK);
+    uint8_t byte_sel = paddr->page_offset & ~BYTE_SEL_MASK;
+
+    //Read the whole word (in which the byte is)
+    //TODO : possibly wrong to use cache_read, since it is not said so in the instructions...
+    //Maybe we should directly read the memory. See forum, somebody asked and I up'd the question
+    uint32_t word;
+    cache_read(mem_space, &word_aligned, DATA, l1_cache, l2_cache, &word, replace);
+
+    //Modify the byte
+    ((uint8_t*)&word)[byte_sel] = p_byte;
+    
+    //Write it back
+    cache_write(mem_space, &word_aligned, l1_cache, l2_cache, &word, replace);
+
+    return ERR_NONE;
+}

@@ -30,7 +30,9 @@
     uint8_t thresh = cache_age(TYPE, WAYS, LINE_INDEX, WAY_INDEX); \
     foreach_way(w, WAYS) { \
       /* reset WAY_INDEX-entry's age */ \
-      if(w == WAY_INDEX) cache_age(TYPE, WAYS, LINE_INDEX, WAY_INDEX) = 0; \
+      if(w == WAY_INDEX) { \
+        cache_age(TYPE, WAYS, LINE_INDEX, WAY_INDEX) = 0; \
+      } \
       /* increment if age is smaller than threshold */ \
       else { \
         TYPE* cache_entry = cache_entry(TYPE,WAYS, LINE_INDEX, w); \
