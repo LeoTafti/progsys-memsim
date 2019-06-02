@@ -280,13 +280,13 @@ int cache_entry_init(const void * mem_space,
 
     switch(cache_type){
         case L1_ICACHE:
-            INIT(paddr, l1_icache_entry_t, L1_ICACHE_TAG_REMAINING_BITS, L1_ICACHE_LINES, L1_ICACHE_WORDS_PER_LINE);
+            INIT(paddr, l1_icache_entry_t, L1_ICACHE_TAG_REMAINING_BITS, L1_ICACHE_LINE, L1_ICACHE_WORDS_PER_LINE);
             break;
         case L1_DCACHE:
-            INIT(paddr, l1_dcache_entry_t, L1_DCACHE_TAG_REMAINING_BITS, L1_DCACHE_LINES, L1_DCACHE_WORDS_PER_LINE);
+            INIT(paddr, l1_dcache_entry_t, L1_DCACHE_TAG_REMAINING_BITS, L1_DCACHE_LINE, L1_DCACHE_WORDS_PER_LINE);
             break;
         case L2_CACHE:
-            INIT(paddr, l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS, L2_CACHE_LINES, L2_CACHE_WORDS_PER_LINE);
+            INIT(paddr, l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS, L2_CACHE_LINE, L2_CACHE_WORDS_PER_LINE);
             break;
         default :
             M_EXIT_ERR(ERR_BAD_PARAMETER, "%s", "Unrecognized cache type");
@@ -477,7 +477,6 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
 # define EVICTION_PROTOCOL(L1_TYPE, L1_CACHE) \
   do{ \
     L1_TYPE* l1_entry = convert(l2_entry, L2_CACHE, L1_CACHE, paddr_32b); \
-    \
     M_REQUIRE_NON_NULL(l1_entry); \
     /*is there space in L1? */ \
     line_index = line_index_from_paddr32(paddr_32b, L1_CACHE); \
@@ -603,6 +602,7 @@ int cache_read(const void * mem_space,
   // L2 MISS
   else {
     //printf("e: L2 miss\n");
+    //printf("D: after l2 MISS\n");
     //fetch in main mem
     err =  cache_entry_init(mem_space, paddr, l2_entry, L2_CACHE);
     M_REQUIRE( err == ERR_NONE, err, "%s", "Failed to initiate a L2_CACHE entry");
@@ -612,6 +612,7 @@ int cache_read(const void * mem_space,
     // thoughts : use another macro to convert from L2 entry to L1
     // and write the UPDATEL1 macro with an adapted cache entry type?
     *word = l2_entry->line[word_index];
+    //printf("E: after l2 entry init\n");
   }
 
   /* ================================================================ get word*/
