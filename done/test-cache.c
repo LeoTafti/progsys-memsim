@@ -114,14 +114,15 @@ int main(int argc, char *argv[])
             assert(cache_flush(l2_cache, L2_CACHE) == ERR_NONE);
 
             for_all_lines(line, &pgm) {
+                printf("executing command %d\n", *line);
                 execute_command(mem_space, line, l1_icache, l1_dcache, l2_cache);
 
                 printf("L1_ICACHE: \n\n");
-                cache_dump(stdout, l1_icache, L1_ICACHE);
+                //cache_dump(stdout, l1_icache, L1_ICACHE);
                 printf("L1_DCACHE: \n\n");
-                cache_dump(stdout, l1_dcache, L1_DCACHE);
+                //cache_dump(stdout, l1_dcache, L1_DCACHE);
                 printf("L2_CACHE: \n\n");
-                cache_dump(stdout, l2_cache, L2_CACHE);
+                //cache_dump(stdout, l2_cache, L2_CACHE);
                 printf("\n=======================================\n\n");
             }
         } else {

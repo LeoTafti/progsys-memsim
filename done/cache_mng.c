@@ -357,7 +357,7 @@ static int line_index_from_paddr32( uint32_t paddr, cache_t cache_type) {
 }
 #undef CACHE_LINE_INDEX
 
-#define CONVERT(FROM_TYPE, TO_TYPE, TO_TAG_REMAINING_BITS) \
+#define CONVERT(FROM_TYPE, FROM_WORDS_PER_LINE, TO_TYPE, TO_TAG_REMAINING_BITS) \
     do { \
     TO_TYPE* to_entry = malloc(sizeof(TO_TYPE)); \
     if(to_entry == NULL){ return NULL; } \
@@ -365,7 +365,9 @@ static int line_index_from_paddr32( uint32_t paddr, cache_t cache_type) {
     to_entry->v = VALID; \
     to_entry->age = 0; \
     to_entry->tag = tag; \
-    to_entry->line = ((FROM_TYPE*) from)->line; \
+    for(int i = 0; i < FROM_WORDS_PER_LINE; i++) { \
+      to_entry->line[i] = ((FROM_TYPE*) from)->line[i]; \
+    } \
     return to_entry; \
   } while(0)
 
@@ -382,17 +384,21 @@ but it is not very convinient to change the macro above as it uses 'local' varia
 static void* convert(void* from, cache_t from_type, cache_t to_type, const uint32_t paddr_32b) {
   switch(from_type){
     case L1_ICACHE:
-      CONVERT(l1_icache_entry_t, l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS);
+      CONVERT(l1_icache_entry_t, L1_ICACHE_WORDS_PER_LINE,
+              l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS);
       break;
     case L1_DCACHE:
-      CONVERT(l1_dcache_entry_t, l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS);
+      CONVERT(l1_dcache_entry_t, L1_DCACHE_WORDS_PER_LINE,
+              l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS);
       break;
     case L2_CACHE:
       if(to_type == L1_ICACHE) {
-        CONVERT(l2_cache_entry_t, l1_icache_entry_t, L1_ICACHE_TAG_REMAINING_BITS);
+        CONVERT(l2_cache_entry_t, L2_CACHE_WORDS_PER_LINE,
+                l1_icache_entry_t, L1_ICACHE_TAG_REMAINING_BITS);
       }
       else {
-        CONVERT(l2_cache_entry_t, l1_dcache_entry_t, L1_DCACHE_TAG_REMAINING_BITS);
+        CONVERT(l2_cache_entry_t, L2_CACHE_WORDS_PER_LINE,
+                l1_dcache_entry_t, L1_DCACHE_TAG_REMAINING_BITS);
       }
       break;
     default: return NULL;
@@ -434,6 +440,29 @@ static void* evict(void const * const cache,
 
 // TODO function 'update eviction policy(cache, line)'
 // if LRU...
+// .... meh tries to be generic but isnt really
+static int update_eviction_policy(void * const cache, cache_t cache_type,
+                                  const int line_index, const int way,
+                                  cache_replace_t cache_replacement_policy) {
+  switch(cache_replacement_policy){
+    case LRU:
+      switch(cache_type){
+        case L1_ICACHE:
+          LRU_age_increase(l1_icache_entry_t, L1_ICACHE_WAYS, way, line_index);
+        break;
+        case L1_DCACHE:
+          LRU_age_increase(l1_dcache_entry_t, L1_DCACHE_WAYS, way, line_index);
+        break;
+        case L2_CACHE:
+          LRU_age_increase(l2_cache_entry_t, L2_CACHE_WAYS, way, line_index);
+        break;
+        default: M_EXIT(ERR_BAD_PARAMETER, "%s", "unknown cache type");
+      }
+    break;
+    default: M_EXIT(ERR_BAD_PARAMETER, "%s", "unknown replacement policy");
+    }
+  return ERR_NONE;
+}
 
 // TODO check for null returns everywhere it can happen!
 
@@ -445,7 +474,7 @@ static void* evict(void const * const cache,
       M_EXIT_IF(err != ERR_NONE, err, "%s", "error in chache hit"); \
     } while(0)
 
-# define EVICTION_PROTOCOL(L1_TYPE, L1_CACHE, L1_CACHE_WAYS) \
+# define EVICTION_PROTOCOL(L1_TYPE, L1_CACHE) \
   do{ \
     L1_TYPE* l1_entry = convert(l2_entry, L2_CACHE, L1_CACHE, paddr_32b); \
     \
@@ -457,7 +486,7 @@ static void* evict(void const * const cache,
     \
     if(empty) { \
       cache_insert(line_index, way, l1_entry, l1_cache, L1_CACHE); \
-      LRU_age_increase(L1_TYPE, L1_CACHE_WAYS, way, line_index); \
+      update_eviction_policy(l1_cache, L1_CACHE, line_index, way, replace); \
     } \
     else { \
       /* evict (but save) with replacement policy */ \
@@ -465,7 +494,7 @@ static void* evict(void const * const cache,
       /* insert at this index */ \
       cache_insert(line_index, way, l1_entry, l1_cache, L1_CACHE); \
       /* update age */ \
-      LRU_age_increase(L1_TYPE, L1_CACHE_WAYS, way, line_index); \
+      update_eviction_policy(l1_cache, L1_CACHE, line_index, way, replace); \
       \
       /* ========================================== update L2 after eviction*/ \
       l2_cache_entry_t* l2_evicted_entry = convert(evicted, L1_CACHE, L2_CACHE, paddr_32b); \
@@ -478,7 +507,7 @@ static void* evict(void const * const cache,
       \
       if(empty){ \
         cache_insert(line_index, way, l2_evicted_entry, l2_cache, L2_CACHE); \
-        LRU_age_increase(l2_cache_entry_t, L2_CACHE_WAYS, way, line_index); \
+        update_eviction_policy(l2_cache, L2_CACHE, line_index, way, replace); \
       } \
       else { \
         /* evict with replacement policy */ \
@@ -486,7 +515,7 @@ static void* evict(void const * const cache,
         /* insert at free space */ \
         cache_insert(line_index, way, l2_evicted_entry, l2_cache, L2_CACHE); \
         /* update L2 age */ \
-        LRU_age_increase(l2_cache_entry_t, L2_CACHE_WAYS, way, line_index); \
+        update_eviction_policy(l2_cache, L2_CACHE, line_index, way, replace); \
       } \
     } \
   } while(0)
@@ -650,10 +679,10 @@ int cache_read(const void * mem_space,
         }
       }
       */
-    EVICTION_PROTOCOL(l1_icache_entry_t, L1_ICACHE, L1_ICACHE_WAYS);
+    EVICTION_PROTOCOL(l1_icache_entry_t, L1_ICACHE);
     break;
     case DATA:
-    EVICTION_PROTOCOL(l1_dcache_entry_t, L1_DCACHE, L1_DCACHE_WAYS);
+    EVICTION_PROTOCOL(l1_dcache_entry_t, L1_DCACHE);
     break;
     default: M_EXIT(ERR_BAD_PARAMETER, "%s", "access type is ill defined");
   }
@@ -693,7 +722,7 @@ stuff to define:
   evict (should return the held value)
   insert_L
 */
-}
+#undef EVICTION_PROTOCOL
 #undef FIND
 
 //=========================================================================
@@ -715,7 +744,7 @@ int cache_read_byte(const void * mem_space,
                     void * l1_cache,
                     void * l2_cache,
                     uint8_t * p_byte,
-                    cache_replace_t replace);
+                    cache_replace_t replace){ return ERR_BAD_PARAMETER;}
 
 //=========================================================================
 /**
@@ -735,7 +764,7 @@ int cache_write(void * mem_space,
                 void * l1_cache,
                 void * l2_cache,
                 const uint32_t * word,
-                cache_replace_t replace);
+                cache_replace_t replace){return ERR_BAD_PARAMETER;}
 
 //=========================================================================
 /**
@@ -754,4 +783,4 @@ int cache_write_byte(void * mem_space,
                      void * l1_cache,
                      void * l2_cache,
                      uint8_t p_byte,
-                     cache_replace_t replace);
+                     cache_replace_t replace){return ERR_BAD_PARAMETER;}
