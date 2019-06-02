@@ -37,6 +37,7 @@ tlb_mng.o: tlb_mng.c tlb.h addr.h tlb_mng.h list.h addr_mng.h page_walk.h \
  error.h
 tlb_hrchy_mng.o: tlb_hrchy_mng.c tlb_hrchy_mng.h tlb_hrchy.h addr.h\
  mem_access.h error.h page_walk.c
+cache_mng.o: 
 
 test-addr.o: test-addr.c tests.h error.h util.h addr.h addr_mng.h
 test-commands.o: test-commands.c error.h commands.h mem_access.h addr.h

@@ -306,8 +306,9 @@ int cache_entry_init(const void * mem_space,
       return arg_max; \
     } while(0)
 
-/*@brief find a way with free space
-  @return the way's index if any, -1 otherwise
+/*@brief find the oldest way or an empty way
+  @empty set it to 1 is an empty way was found
+  @return the oldest or empty way's index
  */
 static int find_oldest_way( void const * const cache,
                             cache_t cache_type,
@@ -329,7 +330,7 @@ static int find_oldest_way( void const * const cache,
     }
 }
 
-#undef FIND_EMPTY
+#undef FIND_OLDEST
 
 #define CACHE_LINE_INDEX(LINE_BITS) \
   do { \
@@ -337,6 +338,7 @@ static int find_oldest_way( void const * const cache,
     return (paddr >> 4) & line_bits_mask; \
   } while(0)
 
+/*@brief get line index in cache from physical address */
 static int line_index_from_paddr32( uint32_t paddr, cache_t cache_type) {
   switch(cache_type) {
     // TODO we should test this;
@@ -356,7 +358,7 @@ static int line_index_from_paddr32( uint32_t paddr, cache_t cache_type) {
 
 #def CONVERT(FROM_TYPE, TO_TYPE, TO_TAG_REMAINING_BITS) \
     do { \
-    cache_cast(TO_TYPE) to_entry = malloc(sizeof(TO_TYPE*)); \
+    cache_cast(TO_TYPE) to_entry = malloc(sizeof(TO_TYPE)); \
     M_REQUIRE_NON_NULL(to_entry, "%s", "allocation failed for l2_cache_entry during search"); \
     uint32_t tag = tag_from_paddr_32b(paddr_32b, TO_TAG_REMAINING_BITS); \
     to_entry->v = VALID; \
@@ -366,13 +368,17 @@ static int line_index_from_paddr32( uint32_t paddr, cache_t cache_type) {
     return to_entry; \
   } while(0)
 
-static void* convert(void* from, cache_t from_type, cache_t to_type, const uint32_t paddr_32b) {
-  // TODO: does not hold in general?
-  // simplified because both level of caches have the same line length,
-  // otherwise would need to find the correct cut for the lines
-  // TODO duplication with init? this is basically copy paste
-  // but it is not very convinient to change the macro above as it uses 'local' variables
+/*TODO: does not hold in general?
+simplified because both level of caches have the same line length,
+otherwise would need to find the correct cut for the lines */
+/* TODO duplication with init? this is basically copy paste
+but it is not very convinient to change the macro above as it uses 'local' variables */
 
+/* @brief convert from a cache entry type to another from its physical address
+   @param from the cache entry to convert
+   @return the converted and newly allocated cache entry
+*/
+static void* convert(void* from, cache_t from_type, cache_t to_type, const uint32_t paddr_32b) {
   switch(from_type){
     case L1_ICACHE:
       CONVERT(l1_icache_entry_t, l2_cache_entry_t, L2_CACHE_TAG_REMAINING_BITS);
@@ -391,7 +397,7 @@ static void* convert(void* from, cache_t from_type, cache_t to_type, const uint3
     default: M_EXIT(ERR_BAD_PARAMETER, "%s", "unknown cache type");
   }
 }
-
+#undef CONVERT
 
 #define EVICT(TYPE, WAYS, LINE_INDEX, WAY) \
   do { \
@@ -432,6 +438,49 @@ static void* evict(void const * const cache,
       M_EXIT_IF(err != ERR_NONE, "%s", "error in chache hit"); \
     } while(0)
 
+# def EVICTION_PROTOCOL(L1_TYPE, L1_CACHE, L1_CACHE_WAYS) \
+  do{ \
+    cache_cast(L1_TYPE) l1_entry = convert(l2_entry, L2_CACHE, L1_CACHE, paddr_32b); \
+    \
+    /*is there space in L1? */ \
+    line_index = line_index_from_paddr32(paddr_32b, L1_CACHE); \
+    int empty = 0; \
+    way = find_oldest_way(l1_cache, L1_CACHE, line_index, &empty); \
+    \
+    if(empty) { \
+      cache_insert(line_index, way, l1_entry, l1_cache, L1_CACHE); \
+      LRU_age_increase(L1_CACHE, L1_CACHE_WAYS, way, line_index); \
+    } \
+    else { \
+      /* evict (but save) with replacement policy */ \
+      cache_cast(L1_TYPE) evicted = evict(l1_cache, L1_CACHE, line_index, way); \
+      /* insert at this index */ \
+      cache_insert(line_index, way, l1_entry, l1_cache, L1_CACHE); \
+      /* update age */ \
+      LRU_age_increase(L1_CACHE, L1_CACHE_WAYS, way, line_index); \
+      \
+      /* ========================================== update L2 after eviction*/ \
+      l2_cache_entry_t* l2_evicted_entry = convert(evicted, L1_CACHE, L2_CACHE, paddr); \
+      \
+      /* L2 space? */ \
+      line_index = line_index_from_paddr32(paddr_32b, L2_CACHE); \
+      empty = 0; \
+      way = find_oldest_way(l2_cache, L2_CACHE, line_index, &empty);\
+      \
+      if(empty){ \
+        cache_insert(line_index, way, l2_evicted_entry, l2_cache, L2_CACHE); \
+        LRU_age_increase(L2_CACHE, L2_CACHE_WAYS, way, line_index); \
+      } \
+      else { \
+        /* evict with replacement policy */ \
+        evict(l2_cache, L2_CACHE, line_index, way); \
+        /* insert at free space */ \
+        cache_insert(line_index, way, l2_evicted_entry, l2_cache, L2_CACHE); \
+        /* update L2 age */ \
+        LRU_age_increase(L2_CACHE, L2_CACHE_WAYS, way, line_index); \
+      } \
+    } \
+  } while(0)
 //=========================================================================
 /**
  * @brief Ask cache for a word of data.
@@ -495,7 +544,7 @@ int cache_read(const void * mem_space,
 
 /* ================================================================== L2-hit? */
   // TODO we dont really need the cache entry here, the line would be enough
-  l2_cache_entry_t* l2_entry = malloc(sizeof(l2_cache_entry_t*));
+  l2_cache_entry_t* l2_entry = malloc(sizeof(l2_cache_entry_t));
   M_REQUIRE_NON_NULL(l2_entry, "%s", "allocation failed during search");
   FIND(l2_cache, L2_CACHE);
   // L2 HIT
@@ -545,7 +594,7 @@ int cache_read(const void * mem_space,
   uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);
   switch(access){ // TODO MACROIFY pour plus de plaisir
     case INSTRUCTION:
-
+      /*
       l1_icache_entry_t* l1_entry = CONVERT(l2_entry, L2_CACHE, L1_ICACHE, paddr_32b);
 
       // is there space in L1?
@@ -565,7 +614,7 @@ int cache_read(const void * mem_space,
         //update age
         LRU_age_increase(L1_ICACHE, L1_ICACHE_WAYS, way, line_index);
 
-        /* ========================================== update L2 after eviction*/
+        // ========================================== update L2 after eviction
         l2_cache_entry_t* l2_evicted_entry = CONVERT(evicted, L1_ICACHE, L2_CACHE, paddr);
 
         //L2 space?
@@ -586,8 +635,11 @@ int cache_read(const void * mem_space,
           LRU_age_increase(L2_CACHE, L2_CACHE_WAYS, way, line_index);
         }
       }
+      */
+    EVICTION_PROTOCOL(l1_icache_entry_t, L1_ICACHE, L1_ICACHE_WAYS);
     break;
     case DATA:
+    EVICTION_PROTOCOL(l1_dcache_entry_t, L1_DCACHE, L1_DCACHE_WAYS);
     break;
     default: M_EXIT(ERR_BAD_PARAMETER, "%s", "access type is ill defined");
   }
