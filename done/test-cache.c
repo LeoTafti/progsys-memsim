@@ -119,6 +119,12 @@ int main(int argc, char *argv[])
 
                 printf("L1_ICACHE: \n\n");
                 cache_dump(stdout, l1_icache, L1_ICACHE);
+                /*printf("00: %x , %x , %x , %x\n",
+                        l1_icache[0].line[0],
+                        l1_icache[0].line[1],
+                        l1_icache[0].line[2],
+                        l1_icache[0].line[3]
+                ); */
                 printf("L1_DCACHE: \n\n");
                 cache_dump(stdout, l1_dcache, L1_DCACHE);
                 printf("L2_CACHE: \n\n");
