@@ -823,7 +823,7 @@ int cache_write(void * mem_space,
         }else{
         printf("de: L2 miss\n");
             //Read (whole) line from memory
-            memcpy(p_line, &(((word_t*)mem_space)[line_addr]), L2_CACHE_LINE);
+            memcpy(p_line, &(((word_t*)mem_space)[line_addr>>BYTE_SEL_BITS]), L2_CACHE_LINE);
 
             //Modify word and write back the whole line to main mem.
             p_line[word_index] = *word;
