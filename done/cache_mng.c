@@ -516,7 +516,7 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
   @param paddr_32b the requested address
   @return err code
 */
-static int L1_insert(void* l1_cache, void* l1_cache_entry, cache_t l1_cache_type,
+static int l1_insert(void* l1_cache, void* l1_entry, cache_t l1_cache_type,
                      l2_cache_entry_t* l2_cache,
                      uint32_t paddr_32b,
                      cache_replace_t replace) {
@@ -532,6 +532,28 @@ static int L1_insert(void* l1_cache, void* l1_cache_entry, cache_t l1_cache_type
     return ERR_NONE;
 }
 #undef CACHE_COMMUNICATION
+
+static int l2_to_l1(void* l1_cache, cache_t l1_cache_type,
+                     l2_cache_entry_t* l2_cache, l2_cache_entry_t* l2_entry,
+                     uint32_t paddr_32b,
+                     cache_replace_t replace){
+int err = ERR_NONE;
+void* l1_entry;
+switch(l1_cache_type){
+  case L1_ICACHE:
+    l1_entry  = convert(l2_entry, L2_CACHE, L1_ICACHE, paddr_32b);
+    M_REQUIRE_NON_NULL(l1_entry);
+    err = l1_insert(l1_cache, l1_entry, L1_ICACHE, l2_cache, paddr_32b, replace);
+  break;
+  case L1_DCACHE:
+    l1_entry = convert(l2_entry, L2_CACHE, L1_DCACHE, paddr_32b);
+    M_REQUIRE_NON_NULL(l1_entry);
+    err = l1_insert(l1_cache, l1_entry, L1_DCACHE, l2_cache, paddr_32b, replace);
+  break;
+  default: M_EXIT(ERR_BAD_PARAMETER, "%s", "access type is ill defined");
+  }
+  return err;
+}
 
 // TODO check for null returns everywhere it can happen!
 
@@ -654,20 +676,18 @@ int cache_read(const void * mem_space,
   insert mainmem L1
   */
   uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);
-  L1_TYPE* l1_entry = convert(l2_entry, L2_CACHE, L1_CACHE, paddr_32b);
-  M_REQUIRE_NON_NULL(l1_entry);
   switch(access){
     case INSTRUCTION:
-    err = L1_insert(l1_cache, l1_entry, L1_ICACHE, l2_cache, paddr_32b, replace);
-    M_EXIT_IF_ERR(err, "cache communication failed\n");
+      err = l2_to_l1(l1_cache, L1_ICACHE, l2_cache, l2_entry, paddr_32b, replace);
     break;
     case DATA:
-    err = l2_insert(l1_cache, l1_entry, L1_DCACHE, l2_cache, paddr_32b, replace);
+      err = l2_to_l1(l1_cache, L1_DCACHE, l2_cache, l2_entry, paddr_32b, replace);
     break;
     default: M_EXIT(ERR_BAD_PARAMETER, "%s", "access type is ill defined");
   }
+  M_EXIT_IF_ERR(err, "cache read failed");
 
-  return err;
+  return ERR_NONE;
 }
 
 /*
