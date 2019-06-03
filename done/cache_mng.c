@@ -468,10 +468,8 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
 }
 
 // TODO remove ints for uint stuff
-# define CACHE_COMMUNICATION(L1_TYPE, L1_CACHE) \
+# define L1_INSERT(L1_TYPE, L1_CACHE) \
   do{ \
-    L1_TYPE* l1_entry = convert(l2_entry, L2_CACHE, L1_CACHE, paddr_32b); \
-    M_REQUIRE_NON_NULL(l1_entry); \
     /*is there space in L1? */ \
     int line_index = line_index_from_paddr32(paddr_32b, L1_CACHE); \
     int empty = 0; \
@@ -518,16 +516,16 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
   @param paddr_32b the requested address
   @return err code
 */
-static int cache_communication(void* l1_cache, cache_t l1_cache_type,
-                               l2_cache_entry_t* l2_cache, l2_cache_entry_t* l2_entry,
-                               uint32_t paddr_32b,
-                               cache_replace_t replace) {
+static int L1_insert(void* l1_cache, void* l1_cache_entry, cache_t l1_cache_type,
+                     l2_cache_entry_t* l2_cache,
+                     uint32_t paddr_32b,
+                     cache_replace_t replace) {
     switch(l1_cache_type) {
       case L1_ICACHE:
-        CACHE_COMMUNICATION(l1_icache_entry_t, L1_ICACHE);
+        L1_INSERT(l1_icache_entry_t, L1_ICACHE);
       break;
       case L1_DCACHE:
-        CACHE_COMMUNICATION(l1_icache_entry_t, L1_DCACHE);
+        L1_INSERT(l1_icache_entry_t, L1_DCACHE);
       break;
       default: M_EXIT(ERR_BAD_PARAMETER, "%s", "unknown cache type");
     }
@@ -656,13 +654,15 @@ int cache_read(const void * mem_space,
   insert mainmem L1
   */
   uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);
+  L1_TYPE* l1_entry = convert(l2_entry, L2_CACHE, L1_CACHE, paddr_32b);
+  M_REQUIRE_NON_NULL(l1_entry);
   switch(access){
     case INSTRUCTION:
-    err = cache_communication(l1_cache, L1_ICACHE, l2_cache, l2_entry, paddr_32b, replace);
+    err = L1_insert(l1_cache, l1_entry, L1_ICACHE, l2_cache, paddr_32b, replace);
     M_EXIT_IF_ERR(err, "cache communication failed\n");
     break;
     case DATA:
-    err = cache_communication(l1_cache, L1_DCACHE, l2_cache, l2_entry, paddr_32b, replace);
+    err = l2_insert(l1_cache, l1_entry, L1_DCACHE, l2_cache, paddr_32b, replace);
     break;
     default: M_EXIT(ERR_BAD_PARAMETER, "%s", "access type is ill defined");
   }
@@ -810,7 +810,6 @@ int cache_write(void * mem_space,
       printf("dc: L1 miss\n");
         M_EXIT_IF_ERR(cache_hit(mem_space, l2_cache, paddr, &p_line, &hit_way, &hit_index, L2_CACHE), "Error calling cache_hit on l2 cache");
         if(hit_way != HIT_WAY_MISS){
-        printf("dd: L2 hit\n");
             p_line[word_index] = *word;\
             MODIFY_AND_REINSERT(l2_cache, l2_cache_entry_t, L2_CACHE_WAYS, L2_CACHE_LINE);
 
@@ -824,6 +823,7 @@ int cache_write(void * mem_space,
         printf("de: L2 miss\n");
             //Read (whole) line from memory
             memcpy(p_line, &(((word_t*)mem_space)[line_addr>>BYTE_SEL_BITS]), L2_CACHE_LINE);
+        printf("de: L2 after memcpy\n");
 
             //Modify word and write back the whole line to main mem.
             p_line[word_index] = *word;
