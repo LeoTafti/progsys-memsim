@@ -756,7 +756,7 @@ int cache_read_byte(const void * mem_space,
  */
 
 #define WRITE_LINE_IN_MEM(CACHE_LINE) \
-    memcpy(&(((word_t*)mem_space)[line_addr]), p_line, CACHE_LINE)
+    memcpy(&(((word_t*)mem_space)[line_addr>>BYTE_SEL_BITS]), p_line, CACHE_LINE)
 
 #define MODIFY_AND_REINSERT(l_cache, cache_entry_type, CACHE_WAYS, CACHE_LINE) \
 do{\
@@ -781,10 +781,11 @@ int cache_write(void * mem_space,
     M_REQUIRE_NON_NULL(l2_cache);
     M_REQUIRE_NON_NULL(word);
 
+    printf("d_: in write\n");
     M_REQUIRE((paddr->page_offset & BYTE_SEL_MASK) == 0, ERR_BAD_PARAMETER, "%s", "Address should be word aligned");
 
     uint8_t word_index = (paddr->page_offset >> BYTE_SEL_BITS) & WORD_SEL_MASK;
-
+    printf("da: in write, word index is %d\n", word_index);
     uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);\
     uint32_t line_addr = paddr_32b & ~((WORD_SEL_MASK << BYTE_SEL_BITS) | BYTE_SEL_MASK); \
 
@@ -793,16 +794,23 @@ int cache_write(void * mem_space,
     uint16_t hit_index;
     M_EXIT_IF_ERR(cache_hit(mem_space, l1_cache, paddr, &p_line, &hit_way, &hit_index, L1_DCACHE);, "Error calling cache_hit on l1 data cache");
     if(hit_way != HIT_WAY_MISS && hit_index != HIT_INDEX_MISS){
+      printf("db: L1_hit\n");
 
         //Modify one word of the read line and reinsert it in l1 data cache
         p_line[word_index] = *word;
+
+      printf("db: L1 hit after line write\n");
         MODIFY_AND_REINSERT(l1_cache, l1_dcache_entry_t, L1_DCACHE_WAYS, L1_DCACHE_LINE);
+      printf("db: L1 hit after line modify and reinsert\n");
 
         //Write the whole line in memory (write through cache)
         WRITE_LINE_IN_MEM(L1_DCACHE_LINE);
+      printf("db: L1 hit after write in mem\n");
     }else{
+      printf("dc: L1 miss\n");
         M_EXIT_IF_ERR(cache_hit(mem_space, l2_cache, paddr, &p_line, &hit_way, &hit_index, L2_CACHE), "Error calling cache_hit on l2 cache");
         if(hit_way != HIT_WAY_MISS){
+        printf("dd: L2 hit\n");
             p_line[word_index] = *word;\
             MODIFY_AND_REINSERT(l2_cache, l2_cache_entry_t, L2_CACHE_WAYS, L2_CACHE_LINE);
 
@@ -813,6 +821,7 @@ int cache_write(void * mem_space,
 
             WRITE_LINE_IN_MEM(L2_CACHE_LINE);
         }else{
+        printf("de: L2 miss\n");
             //Read (whole) line from memory
             memcpy(p_line, &(((word_t*)mem_space)[line_addr]), L2_CACHE_LINE);
 
@@ -825,6 +834,7 @@ int cache_write(void * mem_space,
             M_EXIT_IF_ERR(cache_insert(hit_index, hit_way, &entry, l1_cache, L1_DCACHE), "Error trying to insert into the l1 data cache");
         }
     }
+    printf("df: end of cache write\n");
     return ERR_NONE;
 }
 
