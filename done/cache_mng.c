@@ -305,7 +305,7 @@ int cache_entry_init(const void * mem_space,
       foreach_way(way, WAYS) { \
         if(!cache_valid(TYPE, WAYS, line_index, way)){ *empty = 1;  return way;}\
         int tmp = cache_age(TYPE, WAYS, line_index, way); \
-        if( tmp > max){ max = tmp; arg_max = way; }\
+        if( tmp > max) {max = tmp; arg_max = way;} \
       } \
       return arg_max; \
     } while(0)
@@ -808,7 +808,11 @@ int cache_write(void * mem_space,
     if(hit_way != HIT_WAY_MISS && hit_index != HIT_INDEX_MISS){
         printf("  L1 hit\n");
         //Modify one word of the read line and reinsert it in l1 data cache
+        printf("Word : %x\n", *word);
+        printf("word index = %d\n", word_index);
+        printf("before : %x\n", p_line[word_index]);
         p_line[word_index] = *word;
+        printf("after : %x\n", p_line[word_index]);
 
         MODIFY_AND_REINSERT(l1_cache, l1_dcache_entry_t, L1_DCACHE_WAYS, L1_DCACHE_LINE);
 
@@ -899,7 +903,7 @@ int cache_write_byte(void * mem_space,
     //Word align the address and get index of the desired byte
     phy_addr_t word_aligned = *paddr;
     word_aligned.page_offset = word_aligned.page_offset & (~BYTE_SEL_MASK);
-    uint8_t byte_sel = paddr->page_offset & ~BYTE_SEL_MASK;
+    uint8_t byte_sel = paddr->page_offset & BYTE_SEL_MASK;
 
     //Read the whole word (in which the byte is)
     uint32_t word;
