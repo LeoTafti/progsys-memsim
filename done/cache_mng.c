@@ -343,11 +343,11 @@ static int find_oldest_way( void const * const cache,
 #define RECOVER(TYPE, TAG_REMAINING_BITS, CACHE_LINE) \
   do { \
     uint32_t addr = ((TYPE*)from_entry)->tag << TAG_REMAINING_BITS; \
-    addr |= line_index << (BYTE_SEL_BITS + WORD_SEL_BITS); \
+    addr |= line_index * CACHE_LINE; \
     return addr; \
   } while(0);
 
-/* @brief recover address from a cache entry
+/* @brief recover the address of the beginning of the line from a cache entry
 */
 static uint32_t recover_addr(void* from_entry, cache_t from_type, uint16_t line_index) {
   switch(from_type){
@@ -364,8 +364,7 @@ static uint32_t recover_addr(void* from_entry, cache_t from_type, uint16_t line_
 
 #undef RECOVER
 
-// TODO WTF do i do with this?
-// NOTE: This only works assuming that all caches have the same line sizes! Léo – Yes but it is not the only place where we make this assumption. I'd say balek
+// NOTE: This only works assuming that all caches have the same line sizes!
 #define CONVERT(FROM_TYPE, TO_TYPE, TO_TAG_REMAINING_BITS, CACHE_LINE) \
     do { \
       uint32_t addr = recover_addr(from_entry, from_cache, line_index); \
@@ -378,7 +377,8 @@ static uint32_t recover_addr(void* from_entry, cache_t from_type, uint16_t line_
       return entry; \
     } while(0)
 
-//TODO : if we have some time left (mdr) would make more sense to return an error code and modify the pointer to a parameter of type l2_cache_entry_t*
+/* @brief converts the cache entry 'from' from a 'from_cache' entry to a 'to_cache' entry
+*/
 static void* convert(void* from_entry, cache_t from_cache, cache_t to_cache, uint16_t line_index){
   switch(to_cache){
     case L1_ICACHE:
@@ -454,6 +454,7 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
   return ERR_NONE;
 }
 
+// FIXME: mallocs require free... but it messes things up here
 # define L1_INSERT(L1_TYPE, L1_CACHE) \
   do{ \
     /*Is there space in L1? */ \
@@ -462,27 +463,20 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
     uint8_t way = find_oldest_way(l1_cache, L1_CACHE, line_index, &empty); \
     \
     if(empty) { \
-      printf("L1 has empty space\n");\
       cache_insert(line_index, way, l1_entry, l1_cache, L1_CACHE); \
       update_eviction_policy(l1_cache, L1_CACHE, line_index, way, replace); \
     } \
     else { \
-      printf("L1 must evict something\n"); \
       /* evict (but save) with replacement policy */ \
       L1_TYPE* evicted = evict(l1_cache, L1_CACHE, line_index, way); \
-      printf("L1: evicted tag %x, inserted tag %x\n", \
-              evicted->tag, tag_from_paddr_32b(paddr_32b, L1_DCACHE_TAG_REMAINING_BITS)); \
       uint32_t evicted_addr = recover_addr(evicted, L1_CACHE, line_index); \
       l2_cache_entry_t* l2_evicted_entry =  malloc(sizeof(l2_cache_entry_t)); \
-      /* TODO DUPLICATION!! Léo – We cannot do anything else... What looks like it is cache_entry_init and it requires */ \
-      /*(though doesn't use) mem_space, which is unavailable here*/ \
       M_EXIT_IF_NULL(l2_evicted_entry, sizeof(l2_cache_entry_t)); \
       l2_evicted_entry->v = VALID; \
       l2_evicted_entry->age = 0; \
       l2_evicted_entry->tag = tag_from_paddr_32b(evicted_addr, L2_CACHE_TAG_REMAINING_BITS); \
       memcpy(l2_evicted_entry->line, evicted->line, L2_CACHE_LINE); \
-      printf("L2: evicted tag %x, inserted tag %x\n", \
-              l2_evicted_entry->tag, tag_from_paddr_32b(paddr_32b, L2_CACHE_TAG_REMAINING_BITS)); \
+      /* free(evicted); ... */
       \
       /* insert at this index */ \
       cache_insert(line_index, way, l1_entry, l1_cache, L1_CACHE); \
@@ -500,9 +494,9 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
         update_eviction_policy(l2_cache, L2_CACHE, line_index, way, replace); \
       } \
       else { \
-        printf("L2 must evict something"); \
         /* evict with replacement policy */ \
-        evict(l2_cache, L2_CACHE, line_index, way); \
+        void* tmp = evict(l2_cache, L2_CACHE, line_index, way); \
+        /* free(tmp); .... */\
         /* insert at free space */ \
         cache_insert(line_index, way, l2_evicted_entry, l2_cache, L2_CACHE); \
         /* update L2 age */ \
@@ -549,10 +543,10 @@ static int l2_to_l1(void* l1_cache, cache_t l1_cache_type,
       M_EXIT(ERR_BAD_PARAMETER, "%s", "access type is ill defined");
     }
 
-  //TODO : free here
+
   //Invalidate l2 entry and free it
   l2_entry->v = INVALID;
-
+  free(l1_entry);
   return ERR_NONE;
 }
 
@@ -576,7 +570,7 @@ int cache_read(const void * mem_space,
   uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);
   uint8_t word_index = (paddr->page_offset >> BYTE_SEL_BITS) & WORD_SEL_MASK;
   uint32_t line_addr = paddr_32b & ~((WORD_SEL_MASK << BYTE_SEL_BITS) | BYTE_SEL_MASK);
-  
+
   uint32_t* p_line;
   uint8_t hit_way;
   uint16_t hit_index;
@@ -612,25 +606,25 @@ int cache_read(const void * mem_space,
     //Read (whole) line from memory
     p_line = calloc(L2_CACHE_LINE, 1);
     memcpy(p_line, &(((word_t*)mem_space)[line_addr>>BYTE_SEL_BITS]), L2_CACHE_LINE);
-
+    void* entry;
     switch(access){
       case INSTRUCTION:
         //Initialize a new entry by reading from memory
-        l1_icache_entry_t* entry = malloc(sizeof(l1_icache_entry_t));
+        entry = malloc(sizeof(l1_icache_entry_t));
         M_EXIT_IF_NULL(entry, sizeof(l1_icache_entry_t));
         M_EXIT_IF_ERR(cache_entry_init(mem_space, paddr, entry, L1_ICACHE), "Error calling cache_entry_init");
         M_EXIT_IF_ERR(l1_insert(l1_cache, entry, L1_ICACHE, l2_cache, paddr_32b, replace), "Error inserting in l1 instruction cache (from memory)");
 
-        *word = entry->line[word_index];
+        *word = ((l1_icache_entry_t*)entry)->line[word_index];
         break;
       case DATA:
         //Initialize a new entry by reading from memory
-        l1_dcache_entry_t* entry = malloc(sizeof(l1_dcache_entry_t));
+        entry = malloc(sizeof(l1_dcache_entry_t));
         M_EXIT_IF_NULL(entry, sizeof(l1_dcache_entry_t));
         M_EXIT_IF_ERR(cache_entry_init(mem_space, paddr, entry, L1_DCACHE), "Error calling cache_entry_init");
         M_EXIT_IF_ERR(l1_insert(l1_cache, entry, L1_DCACHE, l2_cache, paddr_32b, replace), "Error inserting in l1 data cache (from memory)");
 
-        *word = entry->line[word_index];
+        *word = ((l1_dcache_entry_t*)entry)->line[word_index];
         break;
       default:
         M_EXIT(ERR_BAD_PARAMETER, "%s", "access type is ill defined");
@@ -785,40 +779,18 @@ int cache_write(void * mem_space,
     uint8_t hit_way;
     uint16_t hit_index;
 
-    printf("write to tag: L1 = %x    L2 = %x \n",
-          tag_from_paddr_32b(paddr_32b, L1_DCACHE_TAG_REMAINING_BITS),
-          tag_from_paddr_32b(paddr_32b, L2_CACHE_TAG_REMAINING_BITS));
     M_EXIT_IF_ERR(cache_hit(mem_space, l1_cache, paddr, &p_line, &hit_way, &hit_index, L1_DCACHE), "Error calling cache_hit on l1 data cache");
     if(hit_way != HIT_WAY_MISS && hit_index != HIT_INDEX_MISS){
-        printf("  L1 hit\n");
         //Modify one word of the read line and reinsert it in l1 data cache
-        printf("Word : %x\n", *word);
-        printf("word index = %d\n", word_index);
-        printf("before : %x\n", p_line[word_index]);
-        p_line[word_index] = *word;
-        printf("after : %x\n", p_line[word_index]);
-
         MODIFY_AND_REINSERT(l1_cache, l1_dcache_entry_t, L1_DCACHE_WAYS, L1_DCACHE_LINE);
 
         //Write the whole line in memory (write through cache)
         WRITE_LINE_IN_MEM(L1_DCACHE_LINE);
 
-        cache_hit(mem_space, l1_cache, paddr, &p_line, &hit_way, &hit_index, L1_DCACHE);
-        printf("      L1 hit at this address? %s \n", hit_way == HIT_WAY_MISS? "NO" : "YES");
-        cache_hit(mem_space, l2_cache, paddr, &p_line, &hit_way, &hit_index, L2_CACHE);
-        printf("      L2 hit at this address? %s \n", hit_way == HIT_WAY_MISS? "NO" : "YES");
-
     }else{
-        printf("  L1 miss\n");
-        cache_hit(mem_space, l1_cache, paddr, &p_line, &hit_way, &hit_index, L1_DCACHE);
-        printf("      L1 hit at this address? %s \n", hit_way == HIT_WAY_MISS? "NO" : "YES");
-        cache_hit(mem_space, l2_cache, paddr, &p_line, &hit_way, &hit_index, L2_CACHE);
-        printf("      L2 hit at this address? %s \n", hit_way == HIT_WAY_MISS? "NO" : "YES");
-
 
         M_EXIT_IF_ERR(cache_hit(mem_space, l2_cache, paddr, &p_line, &hit_way, &hit_index, L2_CACHE), "Error calling cache_hit on l2 cache");
         if(hit_way != HIT_WAY_MISS && hit_index != HIT_INDEX_MISS){
-            printf("      L2 hit\n");
             p_line[word_index] = *word;
             MODIFY_AND_REINSERT(l2_cache, l2_cache_entry_t, L2_CACHE_WAYS, L2_CACHE_LINE);
 
@@ -828,12 +800,8 @@ int cache_write(void * mem_space,
             l2_to_l1(l1_cache, L1_DCACHE, l2_cache, l2_entry, paddr_32b, replace);
 
             WRITE_LINE_IN_MEM(L2_CACHE_LINE);
-            cache_hit(mem_space, l1_cache, paddr, &p_line, &hit_way, &hit_index, L1_DCACHE);
-            printf("        L1 hit at this address? %s \n", hit_way == HIT_WAY_MISS? "NO" : "YES");
-            cache_hit(mem_space, l2_cache, paddr, &p_line, &hit_way, &hit_index, L2_CACHE);
-            printf("        L2 hit at this address? %s \n", hit_way == HIT_WAY_MISS? "NO" : "YES");
+
         }else{
-            printf("      L2 miss\n");
             //Read (whole) line from memory
             p_line = calloc(L2_CACHE_LINE, 1);
             memcpy(p_line, &(((word_t*)mem_space)[line_addr>>BYTE_SEL_BITS]), L2_CACHE_LINE);
@@ -846,15 +814,8 @@ int cache_write(void * mem_space,
             M_REQUIRE_NON_NULL(entry);
             M_EXIT_IF_ERR(cache_entry_init(mem_space, paddr, entry, L1_DCACHE), "Error trying to initialize a new l1 data cache entry");
             M_EXIT_IF_ERR(l1_insert(l1_cache, entry, L1_DCACHE, l2_cache, paddr_32b, replace), "Error inserting in l1 data cache (from memory)");
-
-            cache_hit(mem_space, l1_cache, paddr, &p_line, &hit_way, &hit_index, L1_DCACHE);
-            printf("        L1 hit at this address? %s \n", hit_way == HIT_WAY_MISS? "NO" : "YES");
-            cache_hit(mem_space, l2_cache, paddr, &p_line, &hit_way, &hit_index, L2_CACHE);
-            printf("        L2 hit at this address? %s \n", hit_way == HIT_WAY_MISS? "NO" : "YES");
-
       }
     }
-    printf("\n");
     return ERR_NONE;
 }
 
