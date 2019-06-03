@@ -26,16 +26,8 @@ static inline uint8_t index_from_tag_and_index(uint64_t tag_and_index, const siz
 }
 
 #define FLUSH(tlb_entry_type, TLB_LINES) \
-    do { \
-        tlb_entry_type* tlb_arr = (tlb_entry_type*)tlb; \
-        for(size_t i = 0; i < TLB_LINES; i++) { \
-            tlb_arr[i].v = INVALID; \
-            tlb_arr[i].tag = 0; \
-            tlb_arr[i].phy_page_num = 0; \
-        } \
-    } while(0)
+    (void)memset(tlb, 0, TLB_LINES * sizeof(tlb_entry_type))
 
-// TODO: use memset instead
 int tlb_flush(void *tlb, tlb_t tlb_type){
     M_REQUIRE_NON_NULL(tlb);
 

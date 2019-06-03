@@ -149,9 +149,11 @@ int mem_init_from_dumpfile(const char* filename, void** memory, size_t* mem_capa
 
 		//Allocate memory
 		*memory = calloc(*mem_capacity_in_bytes, 1);
-
-    // TODO review handling of memory = NULL
-  	// 'correcteur when memory is NULL, it should be detected + file should be closed'
+		if(memory == NULL){
+			fclose(mem_dump);
+			M_EXIT(ERR_MEM, "%s", "Error allocating memory to init from dumpfile");
+		}
+		
 		size_t bytes_read;
 		if(*memory != NULL){
 			//Initialize the memory from mem_dump file

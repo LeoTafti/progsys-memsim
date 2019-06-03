@@ -15,14 +15,9 @@
 #include "error.h"
 
 
-// TODO: use memeset
 int tlb_flush(tlb_entry_t * tlb) {
   M_REQUIRE_NON_NULL(tlb);
-  for(size_t i = 0; i < TLB_LINES; i++) {
-    tlb[i].v = INVALID;
-    tlb[i].tag = 0;
-    tlb[i].phy_page_num = 0;
-  }
+  (void)memset(tlb, 0, TLB_LINES * sizeof(tlb_entry_t));
   return ERR_NONE;
 }
 
@@ -35,7 +30,7 @@ int tlb_hit(const virt_addr_t * vaddr,
     return MISS;
   }
 
-  uint64_t tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET; // TODO use to_virtual_page_number
+  uint64_t tag = virt_addr_t_to_virtual_page_number(vaddr);
   node_t* m = NULL;
 
   for_all_nodes_reverse(n, replacement_policy->ll) {
@@ -64,7 +59,7 @@ int tlb_insert( uint32_t line_index,
                 tlb_entry_t * tlb) {
   M_REQUIRE_NON_NULL(tlb_entry);
   M_REQUIRE_NON_NULL(tlb);
-  // TODO check line index
+  M_REQUIRE(line_index < TLB_LINES, ERR_BAD_PARAMETER, "%s", "Line index is too big");
 
   tlb[line_index] = *tlb_entry;
 
@@ -78,9 +73,8 @@ int tlb_entry_init( const virt_addr_t * vaddr,
   M_REQUIRE_NON_NULL(paddr);
   M_REQUIRE_NON_NULL(tlb_entry);
 
-  // TODO use virt_addr_t_to_virtual_page_number
   tlb_entry->v = VALID;
-  tlb_entry->tag = virt_addr_t_to_uint64_t(vaddr)>>PAGE_OFFSET;
+  tlb_entry->tag = virt_addr_t_to_virtual_page_number(vaddr);
   tlb_entry->phy_page_num = paddr->phy_page_num;
 
   return ERR_NONE;
@@ -109,12 +103,11 @@ int tlb_search( const void * mem_space,
 
       //init tlb_entry
       tlb_entry_t new_entry;
-      tlb_entry_init(vaddr, paddr, &new_entry);
-      // TODO check errors here
+      M_EXIT_IF_ERR(tlb_entry_init(vaddr, paddr, &new_entry), "Error calling tlb_entry_init");
 
       //insert in tlb at the front's line index
       node_t* lru = replacement_policy->ll->front;
-      tlb[lru->value] = new_entry; // TODO use tlb_insert
+      tlb_insert(lru->value, &new_entry, tlb);
 
       //set mru position
       replacement_policy->move_back(replacement_policy->ll, lru);
