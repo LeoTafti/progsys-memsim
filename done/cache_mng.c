@@ -149,7 +149,6 @@ int cache_flush(void *cache, cache_t cache_type){
             cache_entry_type* entry = cache_entry(cache_entry_type, CACHE_WAYS, line_index, way);\
             if(entry->v == INVALID){\
                 LRU_age_increase(cache_entry_type, CACHE_WAYS, way, line_index);\
-                /* TODO do we do "et l'on mémorisera se fait pour la suite" */\
                 /*Rest of the cold start is handled like a miss outside of the foreach_way loop*/\
                 break;\
             }else if(entry->tag == tag){\
@@ -212,10 +211,10 @@ int cache_hit (const void * mem_space,
  */
 #define INSERT(cache_entry_type, CACHE_LINES, CACHE_WAYS) \
     do{ \
-        printf("%u\n", cache_line_index);\
         M_REQUIRE(cache_line_index < CACHE_LINES, ERR_BAD_PARAMETER, "%s", "line doesn't exist in this cache"); \
         M_REQUIRE(cache_way < CACHE_WAYS, ERR_BAD_PARAMETER, "%s", "way doesn't exist in this cache"); \
         cache_entry_type* new_entry = (cache_entry_type*) cache_line_in;\
+        if(CACHE_WAYS == L1_DCACHE_WAYS) printf("reinserting to L1 to valid entry tag %x ? %d\n\n", new_entry->tag, new_entry->v);\
         *cache_entry(cache_entry_type, CACHE_WAYS, cache_line_index, cache_way) = *new_entry; \
     } while(0)
 
@@ -257,6 +256,7 @@ int cache_insert(uint16_t cache_line_index,
  * @param cache_type to distinguish between different caches
  * @return error code
  */
+// TODO memcpy
 #define INIT(paddr, cache_entry_type, CACHE_TAG_REMAINING_BITS, CACHE_LINE, CACHE_WORDS_PER_LINE)\
     do{\
         uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);\
@@ -527,7 +527,7 @@ static int l1_insert(void* l1_cache, void* l1_entry, cache_t l1_cache_type,
         L1_INSERT(l1_icache_entry_t, L1_ICACHE);
       break;
       case L1_DCACHE:
-        L1_INSERT(l1_icache_entry_t, L1_DCACHE);
+        L1_INSERT(l1_dcache_entry_t, L1_DCACHE);
       break;
       default: M_EXIT(ERR_BAD_PARAMETER, "%s", "unknown cache type");
     }
@@ -546,6 +546,7 @@ switch(l1_cache_type){
   case L1_ICACHE:
     l1_entry  = convert(l2_entry, L2_CACHE, L1_ICACHE, paddr_32b);
     M_REQUIRE_NON_NULL(l1_entry);
+    printf("converted to L1 to entry tag %x ? %d\n\n", l1_entry->tag, l1_entry->v);
     err = l1_insert(l1_cache, l1_entry, L1_ICACHE, l2_cache, paddr_32b, replace);
   break;
   case L1_DCACHE:
@@ -555,6 +556,7 @@ switch(l1_cache_type){
   break;
   default: M_EXIT(ERR_BAD_PARAMETER, "%s", "access type is ill defined");
   }
+  l2_entry->v = INVALID;
   return err;
 }
 
@@ -640,7 +642,6 @@ int cache_read(const void * mem_space,
     void* cache = l2_cache; // TODO beurk but it dies in 2 lines
     l2_entry = cache_entry(l2_cache_entry_t, L2_CACHE_WAYS, hit_line, hit_way);
     //invalidate L2 cache entry
-    cache_valid(l2_cache_entry_t, L2_CACHE_WAYS, hit_line, hit_way) = INVALID;
     *word = l2_entry->line[word_index];
   }
   // L2 MISS
@@ -784,11 +785,10 @@ int cache_read_byte(const void * mem_space,
 #define MODIFY_AND_REINSERT(l_cache, cache_entry_type, CACHE_WAYS, CACHE_LINE) \
 do{\
     void* cache = l_cache;\
-    cache_entry_type entry = *cache_entry(cache_entry_type, CACHE_WAYS, hit_index, hit_way);\
+    cache_entry_type* entry = cache_entry(cache_entry_type, CACHE_WAYS, hit_index, hit_way);\
     \
     /*Rewrite modified line in cache*/\
-    memcpy(entry.line, p_line, CACHE_LINE);\
-    l1_insert(l1_cache, entry, L1_DCACHE, l2_cache, paddr_32b, replace);\
+    memcpy(entry->line, p_line, CACHE_LINE);\
     \
     LRU_age_update(cache_entry_type, CACHE_WAYS, hit_way, hit_index);\
 } while(0)
@@ -805,36 +805,34 @@ int cache_write(void * mem_space,
     M_REQUIRE_NON_NULL(l2_cache);
     M_REQUIRE_NON_NULL(word);
 
-    printf("d_: in write\n");
     M_REQUIRE((paddr->page_offset & BYTE_SEL_MASK) == 0, ERR_BAD_PARAMETER, "%s", "Address should be word aligned");
 
     uint8_t word_index = (paddr->page_offset >> BYTE_SEL_BITS) & WORD_SEL_MASK;
-    printf("da: in write, word index is %d\n", word_index);
     uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);\
     uint32_t line_addr = paddr_32b & ~((WORD_SEL_MASK << BYTE_SEL_BITS) | BYTE_SEL_MASK); \
 
     uint32_t* p_line;
     uint8_t hit_way;
     uint16_t hit_index;
-    M_EXIT_IF_ERR(cache_hit(mem_space, l1_cache, paddr, &p_line, &hit_way, &hit_index, L1_DCACHE);, "Error calling cache_hit on l1 data cache");
+    M_EXIT_IF_ERR(cache_hit(mem_space, l1_cache, paddr, &p_line, &hit_way, &hit_index, L1_DCACHE), "Error calling cache_hit on l1 data cache");
     if(hit_way != HIT_WAY_MISS && hit_index != HIT_INDEX_MISS){
-      printf("db: L1_hit\n");
 
+        printf("cache write L1 access to tag : %x \n", tag_from_paddr_32b(paddr_32b, L1_DCACHE_TAG_REMAINING_BITS));
         //Modify one word of the read line and reinsert it in l1 data cache
         p_line[word_index] = *word;
 
-      printf("db: L1 hit after line write\n");
         MODIFY_AND_REINSERT(l1_cache, l1_dcache_entry_t, L1_DCACHE_WAYS, L1_DCACHE_LINE);
-      printf("db: L1 hit after line modify and reinsert\n");
 
         //Write the whole line in memory (write through cache)
         WRITE_LINE_IN_MEM(L1_DCACHE_LINE);
-      printf("db: L1 hit after write in mem\n");
     }else{
-      printf("dc: L1 miss\n");
+
+        printf("cache write L2 access to tag : %x \n", tag_from_paddr_32b(paddr_32b, L2_CACHE_TAG_REMAINING_BITS));
         M_EXIT_IF_ERR(cache_hit(mem_space, l2_cache, paddr, &p_line, &hit_way, &hit_index, L2_CACHE), "Error calling cache_hit on l2 cache");
-        if(hit_way != HIT_WAY_MISS){
-            p_line[word_index] = *word;\
+        printf("coucou err\n");
+        if(hit_way != HIT_WAY_MISS && hit_index != HIT_INDEX_MISS){
+            printf("coucou L2_hit\n");
+            p_line[word_index] = *word;
             MODIFY_AND_REINSERT(l2_cache, l2_cache_entry_t, L2_CACHE_WAYS, L2_CACHE_LINE);
 
             //Bring the information from the l2 cache to the l1 cache
@@ -844,22 +842,21 @@ int cache_write(void * mem_space,
 
             WRITE_LINE_IN_MEM(L2_CACHE_LINE);
         }else{
-        printf("de: L2 miss\n");
+            printf("coucou L2_miss\n");
             //Read (whole) line from memory
             p_line = calloc(L2_CACHE_LINE, 1);
             memcpy(p_line, &(((word_t*)mem_space)[line_addr>>BYTE_SEL_BITS]), L2_CACHE_LINE);
-        printf("de: L2 after memcpy\n");
 
             //Modify word and write back the whole line to main mem.
             p_line[word_index] = *word;
             WRITE_LINE_IN_MEM(L2_CACHE_LINE);
 
-            l1_dcache_entry_t entry;
-            M_EXIT_IF_ERR(cache_entry_init(mem_space, paddr, &entry, L1_DCACHE), "Error trying to initialize a new l1 data cache entry");
+            l1_dcache_entry_t* entry = malloc(sizeof(l1_dcache_entry_t));
+            M_REQUIRE_NON_NULL(entry);
+            M_EXIT_IF_ERR(cache_entry_init(mem_space, paddr, entry, L1_DCACHE), "Error trying to initialize a new l1 data cache entry");
             M_EXIT_IF_ERR(l1_insert(l1_cache, &entry, L1_DCACHE, l2_cache, paddr_32b, replace), "Error inserting in l1 data cache (from memory)");
         }
     }
-    printf("df: end of cache write\n");
     return ERR_NONE;
 }
 
@@ -895,8 +892,6 @@ int cache_write_byte(void * mem_space,
     uint8_t byte_sel = paddr->page_offset & ~BYTE_SEL_MASK;
 
     //Read the whole word (in which the byte is)
-    //TODO : possibly wrong to use cache_read, since it is not said so in the instructions...
-    //Maybe we should directly read the memory. See forum, somebody asked and I up'd the question
     uint32_t word;
     cache_read(mem_space, &word_aligned, DATA, l1_cache, l2_cache, &word, replace);
 
