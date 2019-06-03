@@ -761,15 +761,8 @@ int cache_read_byte(const void * mem_space,
 #define WRITE_LINE_IN_MEM(CACHE_WORDS_PER_LINE) \
     memcpy(&(((word_t*)mem_space)[line_addr]), p_line, CACHE_WORDS_PER_LINE * BYTES_PER_WORD)
 
-//TODO : I think using memcpy is cleaner than the following for loop, what do you say ?
-//It is probably a little slower though, since it works with bytes instead of words (but I'm not even sure about that)
-// for(size_t i = 0; i < L1_DCACHE_WORDS_PER_LINE; i++){
-//     ((word_t*)mem_space)[line_addr+i] = p_line[i];
-// }
-
 #define MODIFY_AND_REINSERT(l_cache, cache_entry_type, CACHE_WAYS, CACHE_WORDS_PER_LINE) \
 do{\
-    /*TODO : This is ultra ugly...*/\
     void* cache = l_cache;\
     cache_entry_type* entry = cache_entry(cache_entry_type, CACHE_WAYS, hit_index, hit_way);\
     \
@@ -802,8 +795,7 @@ int cache_write(void * mem_space,
     uint8_t hit_way;
     uint16_t hit_index;
     M_EXIT_IF_ERR(cache_hit(mem_space, l1_cache, paddr, &p_line, &hit_way, &hit_index, L1_DCACHE);, "Error calling cache_hit on l1 data cache");
-    if(hit_way != HIT_WAY_MISS){ //TODO : do we also want to check hit_index != HIT_INDEX_MISS ? Or is this enough ?
-        //TODO : Enoncé says : "lire la ligne correspondante" but isn't it already done by cache_hit ? (and return with p_line)
+    if(hit_way != HIT_WAY_MISS && hit_index != HIT_INDEX_MISS){
 
         //Modify one word of the read line and reinsert it in l1 data cache
         p_line[word_index] = *word;
@@ -817,28 +809,23 @@ int cache_write(void * mem_space,
             p_line[word_index] = *word;\
             MODIFY_AND_REINSERT(l2_cache, l2_cache_entry_t, L2_CACHE_WAYS, L2_CACHE_WORDS_PER_LINE);
             
-            // Bring info from l2 to l1 cache, exactly as done in cache read
-            // FIXME: I couldn't find / understand where exactly you did this
-            // so I left it blank here. Copy / call the corresp. macro !
-            // Implement
+            //Bring the information from the l2 cache to the l1 cache
+            void* cache = l2_cache;
+            l2_cache_entry_t* l2_entry = cache_entry(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way);
+            cache_communication(l1_cache, L1_DCACHE, l2_cache, l2_entry, paddr_32b, replace);
 
             WRITE_LINE_IN_MEM(L2_CACHE_WORDS_PER_LINE);
         }else{
             //Read (whole) line from memory
             memcpy(p_line, &(((word_t*)mem_space)[line_addr]), L2_CACHE_WORDS_PER_LINE * BYTES_PER_WORD);
-            
-            //TODO : Same as above in the macros, do we prefer memcpy or for loop ?
-            // for(size_t i = 0; i < L2_CACHE_WORDS_PER_LINE; i++){
-            //   p_line[i] = ((word_t*)mem_space)[line_addr+i];
-            // }
 
             //Modify word and write back the whole line to main mem.
             p_line[word_index] = *word;
             WRITE_LINE_IN_MEM(L2_CACHE_WORDS_PER_LINE);
 
-            //TODO : it is said that we should update the l1 data cache from memory
-            // but I do have the modified line with p_line ? (possibly wrong, but I don't get it)
-            MODIFY_AND_REINSERT(l1_cache, l1_dcache_entry_t, L1_DCACHE_WAYS, L1_DCACHE_WORDS_PER_LINE);
+            l1_dcache_entry_t entry;
+            M_EXIT_IF_ERR(cache_entry_init(mem_space, paddr, &entry, L1_DCACHE), "Error trying to initialize a new l1 data cache entry");
+            M_EXIT_IF_ERR(cache_insert(hit_index, hit_way, &entry, l1_cache, L1_DCACHE), "Error trying to insert into the l1 data cache");
         }
     }
     return ERR_NONE;
