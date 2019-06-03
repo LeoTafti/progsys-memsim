@@ -455,7 +455,8 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
 }
 
 // FIXME: mallocs require free... but it messes things up here
-# define L1_INSERT(L1_TYPE, L1_CACHE) \
+
+#define L1_INSERT(L1_TYPE, L1_CACHE) \
   do{ \
     /*Is there space in L1? */ \
     uint16_t line_index = index_from_paddr_32b(paddr_32b, L1_ICACHE_LINE, L1_ICACHE_LINES); \
@@ -476,7 +477,7 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
       l2_evicted_entry->age = 0; \
       l2_evicted_entry->tag = tag_from_paddr_32b(evicted_addr, L2_CACHE_TAG_REMAINING_BITS); \
       memcpy(l2_evicted_entry->line, evicted->line, L2_CACHE_LINE); \
-      /* free(evicted); ... */
+      /* free(evicted); ... */ \
       \
       /* insert at this index */ \
       cache_insert(line_index, way, l1_entry, l1_cache, L1_CACHE); \
