@@ -89,14 +89,6 @@ static inline uint16_t index_from_paddr_32b(uint32_t paddr_32b, uint16_t cache_l
 
 
 //=========================================================================
-/**
- * @brief Clean a cache (invalidate, reset...).
- *
- * This function erases all cache data.
- * @param cache pointer to the cache
- * @param cache_type an enum to distinguish between different caches
- * @return error code
- */
 #define FLUSH(cache_entry_type, CACHE_LINES, CACHE_WAYS)\
     (void)memset(cache, 0, CACHE_LINES * CACHE_WAYS * sizeof(cache_entry_type))
 
@@ -122,22 +114,6 @@ int cache_flush(void *cache, cache_t cache_type){
 #undef FLUSH
 
 //=========================================================================
-/**
- * @brief Check if a instruction/data is present in one of the caches.
- *
- * On hit, update hit infos to corresponding index
- *         and update the cache-line-size chunk of data passed as the pointer to the function.
- * On miss, update hit infos to HIT_WAY_MISS or HIT_INDEX_MISS.
- *
- * @param mem_space starting address of the memory space
- * @param cache pointer to the beginning of the cache
- * @param paddr pointer to physical address
- * @param p_line pointer to a cache-line-size chunk of data to return
- * @param hit_way (modified) cache way where hit was detected, HIT_WAY_MISS on miss
- * @param hit_index (modified) cache line index where hit was detected, HIT_INDEX_MISS on miss
- * @param cache_type to distinguish between different caches
- * @return error code
- */
 
 #define HIT(cache_entry_type, CACHE_LINE, CACHE_LINES, CACHE_WAYS, CACHE_TAG_REMAINING_BITS)\
     do{\
@@ -199,16 +175,7 @@ int cache_hit (const void * mem_space,
 #undef HIT
 
 //=========================================================================
-/**
- * @brief Insert an entry to a cache.
- *
- * @param cache_line_index the number of the line to overwrite
- * @param cache_way the number of the way where to insert
- * @param cache_line_in pointer to the cache line to insert
- * @param cache pointer to the cache
- * @param cache_type to distinguish between different caches
- * @return error code
- */
+
 #define INSERT(cache_entry_type, CACHE_LINES, CACHE_WAYS) \
     do{ \
         M_REQUIRE(cache_line_index < CACHE_LINES, ERR_BAD_PARAMETER, "%s", "line doesn't exist in this cache"); \
@@ -246,15 +213,7 @@ int cache_insert(uint16_t cache_line_index,
 #undef INSERT
 
 //=========================================================================
-/**
- * @brief Initialize a cache entry (write to the cache entry for the first time)
- *
- * @param mem_space starting address of the memory space
- * @param paddr pointer to physical address, to extract the tag
- * @param cache_entry pointer to the entry to be initialized
- * @param cache_type to distinguish between different caches
- * @return error code
- */
+
 #define INIT(paddr, cache_entry_type, CACHE_TAG_REMAINING_BITS, CACHE_LINE, CACHE_WORDS_PER_LINE)\
     do{\
         uint32_t paddr_32b = phy_addr_t_to_uint32_t(paddr);\
@@ -547,7 +506,7 @@ static int l2_to_l1(void* l1_cache, cache_t l1_cache_type,
 
   //Invalidate l2 entry and free it
   l2_entry->v = INVALID;
-  free(l1_entry);
+  //free(l2_entry);
   return ERR_NONE;
 }
 
@@ -632,75 +591,12 @@ int cache_read(const void * mem_space,
     }
   }
 
-  /* ========================================================= eviction policy*/
-  /*
--CURRENT:
-  if L1 has free space
-    insert mainmem L1
-  else
-    evict L1
-    insert mainmem L1
-    if l2 has free space
-      insert evicted1 L2
-    else
-      evict L2
-      insert evicted1 L2
-
--LESS CODE DUPLICATION: objective
-  if !L1 has free space
-      evict L1
-      if !l2 has free space
-          evict L2
-          insert evicted1 L2
-      insert evicted1 L2
-  insert mainmem L1
-  */
-
   return ERR_NONE;
 }
 
-/*
-GUIDELINES
-https://www.youtube.com/watch?v=eY52Zsg-KVI
-vérification d'usage (addresse aligned)
-    L1 hit? get word and return
-  - else
-    L2 hit?
-      L2 hit: update corresponding L1
-              invalidate L2 cache entry
-              get word and return
-      L2 miss: fetch in main mem
-               update corresponding L1
-               get word and return
-
-L2 -> L1 :
-  convert L2 entry to L1 entry
-  compute L1 tag
-  invalidate L2 entry
-  is there space in L1?
-    yes: insert at free space
-         update L1 age (cf cache hit)
-    no: evict (but save) with replacement policy and get index
-        insert at this index
-        update age
-        L2 space? goto * for L2 and the evicted data
-*/
 #undef FIND
 
 //=========================================================================
-/**
- * @brief Ask cache for a byte of data. Endianess: LITTLE.
- *
- * @param mem_space pointer to the memory space
- * @param p_addr pointer to a physical address
- * @param access to distinguish between fetching instructions and reading/writing data
- * @param l1_cache pointer to the beginning of L1 CACHE
- * @param l2_cache pointer to the beginning of L2 CACHE
- * @param byte pointer to the byte to be returned
- * @param replace replacement policy
- * @return error code
- */
-
 
 int cache_read_byte(const void * mem_space,
                     phy_addr_t * p_paddr,
@@ -731,18 +627,6 @@ int cache_read_byte(const void * mem_space,
 }
 
 //=========================================================================
-/**
- * @brief Change a word of data in the cache.
- *  Exclusive policy (see cache_read)
- *
- * @param mem_space pointer to the memory space
- * @param paddr pointer to a physical address
- * @param l1_cache pointer to the beginning of L1 CACHE
- * @param l2_cache pointer to the beginning of L2 CACHE
- * @param word const pointer to the word of data that is to be written to the cache
- * @param replace replacement policy
- * @return error code
- */
 
 #define WRITE_LINE_IN_MEM(CACHE_LINE) \
     memcpy(&(((word_t*)mem_space)[line_addr>>BYTE_SEL_BITS]), p_line, CACHE_LINE)
@@ -824,17 +708,7 @@ int cache_write(void * mem_space,
 #undef MODIFY_AND_REINSERT
 
 //=========================================================================
-/**
- * @brief Write to cache a byte of data. Endianess: LITTLE.
- *
- * @param mem_space pointer to the memory space
- * @param paddr pointer to a physical address
- * @param l1_cache pointer to the beginning of L1 ICACHE
- * @param l2_cache pointer to the beginning of L2 CACHE
- * @param p_byte pointer to the byte to be returned
- * @param replace replacement policy
- * @return error code
- */
+
 int cache_write_byte(void * mem_space,
                      phy_addr_t * paddr,
                      void * l1_cache,
