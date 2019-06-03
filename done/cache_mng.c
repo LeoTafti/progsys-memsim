@@ -336,34 +336,6 @@ static int find_oldest_way( void const * const cache,
 
 #undef FIND_OLDEST
 
-/*
-#define CACHE_LINE_INDEX(LINE_BITS) \
-  do { \
-    int line_bits_mask = (1 << LINE_BITS) - 1; \
-    return (paddr >> 4) & line_bits_mask; \
-  } while(0)
-*/
-/*@brief get line index in cache from physical address */
-/*
-static int line_index_from_paddr32( uint32_t paddr, cache_t cache_type) {
-  switch(cache_type) {
-    // TODO we should test this;
-    case L1_ICACHE:
-      CACHE_LINE_INDEX(L1_ICACHE_LINE_BITS);
-      break;
-    case L1_DCACHE:
-      CACHE_LINE_INDEX(L1_DCACHE_LINE_BITS);
-      break;
-    case L2_CACHE:
-      CACHE_LINE_INDEX(L2_CACHE_LINE_BITS);
-      break;
-    default: M_EXIT(ERR_BAD_PARAMETER, "%s", "unknown cache type");
-  }
-}
-#undef CACHE_LINE_INDEX
-
-*/
-
 // TODO change for loop to memcpy
 /*#define CONVERT(FROM_TYPE, FROM_WORDS_PER_LINE, TO_TYPE, TO_TAG_REMAINING_BITS) \
     do { \
@@ -379,11 +351,11 @@ static int line_index_from_paddr32( uint32_t paddr, cache_t cache_type) {
     return to_entry; \
   } while(0)
 */
-
+// TODO magic number
 #define RECOVER(TYPE, TAG_REMAINING_BITS, CACHE_LINE) \
   do { \
     uint32_t addr = ((TYPE*) from)->tag << TAG_REMAINING_BITS; \
-    addr += line_index * CACHE_LINE; \
+    addr += line_index << 4; \
     return addr; \
   } while(0);
 
@@ -513,13 +485,6 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
       L1_TYPE* evicted = evict(l1_cache, L1_CACHE, line_index, way); \
       printf("L1: evicted tag %x, inserted tag %x\n", \
               evicted->tag, tag_from_paddr_32b(paddr_32b, L1_DCACHE_TAG_REMAINING_BITS)); \
-      \
-      /* insert at this index */ \
-      cache_insert(line_index, way, l1_entry, l1_cache, L1_CACHE); \
-      /* update age */ \
-      update_eviction_policy(l1_cache, L1_CACHE, line_index, way, replace); \
-      \
-      /* ========================================== update L2 after eviction*/ \
       uint32_t evicted_addr = recover_addr(evicted, L1_CACHE, line_index); \
       l2_cache_entry_t* l2_evicted_entry =  malloc(sizeof(l2_cache_entry_t)); \
       /* TODO DUPLICATION!! */ \
@@ -531,8 +496,12 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
       printf("L2: evicted tag %x, inserted tag %x\n", \
               l2_evicted_entry->tag, tag_from_paddr_32b(paddr_32b, L2_CACHE_TAG_REMAINING_BITS)); \
       \
+      /* insert at this index */ \
+      cache_insert(line_index, way, l1_entry, l1_cache, L1_CACHE); \
+      /* update age */ \
+      update_eviction_policy(l1_cache, L1_CACHE, line_index, way, replace); \
       \
-      M_REQUIRE_NON_NULL(l2_evicted_entry); \
+      /* ========================================== update L2 after eviction*/ \
       /* L2 space? */ \
       line_index = index_from_paddr_32b(evicted_addr, L2_CACHE_LINE, L2_CACHE_LINES); \
       empty = 0; \
@@ -585,7 +554,7 @@ static int l2_to_l1(void* l1_cache, cache_t l1_cache_type,
 int err = ERR_NONE;
 l2_entry->v = INVALID;
 void* l1_entry;
-uint16_t line_index = index_from_paddr_32b(paddr_32b, L1_ICACHE_LINE, L1_ICACHE_LINES);
+uint16_t line_index = index_from_paddr_32b(paddr_32b, L2_CACHE_LINE, L2_CACHE_LINES);
 switch(l1_cache_type){
   case L1_ICACHE:
     // TODO duplication but again i need this paddr
