@@ -212,6 +212,7 @@ int cache_hit (const void * mem_space,
  */
 #define INSERT(cache_entry_type, CACHE_LINES, CACHE_WAYS) \
     do{ \
+        printf("%u\n", cache_line_index);\
         M_REQUIRE(cache_line_index < CACHE_LINES, ERR_BAD_PARAMETER, "%s", "line doesn't exist in this cache"); \
         M_REQUIRE(cache_way < CACHE_WAYS, ERR_BAD_PARAMETER, "%s", "way doesn't exist in this cache"); \
         cache_entry_type* new_entry = (cache_entry_type*) cache_line_in;\
@@ -511,6 +512,7 @@ static int update_eviction_policy(void * const cache, cache_t cache_type,
     } \
   } while(0)
 
+//TODO : change comment
 /*@brief handle communication from L2 cache to L1 cache and eviction policies!
   @param l2_entry this entry will be converted to an l1_entry
   @param paddr_32b the requested address
@@ -531,7 +533,8 @@ static int l1_insert(void* l1_cache, void* l1_entry, cache_t l1_cache_type,
     }
     return ERR_NONE;
 }
-#undef CACHE_COMMUNICATION
+
+#undef L1_INSERT
 
 static int l2_to_l1(void* l1_cache, cache_t l1_cache_type,
                      l2_cache_entry_t* l2_cache, l2_cache_entry_t* l2_entry,
@@ -836,12 +839,13 @@ int cache_write(void * mem_space,
             //Bring the information from the l2 cache to the l1 cache
             void* cache = l2_cache;
             l2_cache_entry_t* l2_entry = cache_entry(l2_cache_entry_t, L2_CACHE_WAYS, hit_index, hit_way);
-            cache_communication(l1_cache, L1_DCACHE, l2_cache, l2_entry, paddr_32b, replace);
+            l2_to_l1(l1_cache, L1_DCACHE, l2_cache, l2_entry, paddr_32b, replace);
 
             WRITE_LINE_IN_MEM(L2_CACHE_LINE);
         }else{
         printf("de: L2 miss\n");
             //Read (whole) line from memory
+            p_line = calloc(L2_CACHE_LINE, 1);
             memcpy(p_line, &(((word_t*)mem_space)[line_addr>>BYTE_SEL_BITS]), L2_CACHE_LINE);
         printf("de: L2 after memcpy\n");
 
@@ -851,7 +855,7 @@ int cache_write(void * mem_space,
 
             l1_dcache_entry_t entry;
             M_EXIT_IF_ERR(cache_entry_init(mem_space, paddr, &entry, L1_DCACHE), "Error trying to initialize a new l1 data cache entry");
-            M_EXIT_IF_ERR(cache_insert(hit_index, hit_way, &entry, l1_cache, L1_DCACHE), "Error trying to insert into the l1 data cache");
+            M_EXIT_IF_ERR(l1_insert(l1_cache, &entry, L1_DCACHE, l2_cache, paddr_32b, replace), "Error inserting in l1 data cache (from memory)");
         }
     }
     printf("df: end of cache write\n");
