@@ -784,10 +784,11 @@ int cache_read_byte(const void * mem_space,
 #define MODIFY_AND_REINSERT(l_cache, cache_entry_type, CACHE_WAYS, CACHE_LINE) \
 do{\
     void* cache = l_cache;\
-    cache_entry_type* entry = cache_entry(cache_entry_type, CACHE_WAYS, hit_index, hit_way);\
+    cache_entry_type entry = *cache_entry(cache_entry_type, CACHE_WAYS, hit_index, hit_way);\
     \
     /*Rewrite modified line in cache*/\
-    memcpy(entry->line, p_line, CACHE_LINE);\
+    memcpy(entry.line, p_line, CACHE_LINE);\
+    l1_insert(l1_cache, entry, L1_DCACHE, l2_cache, paddr_32b, replace);\
     \
     LRU_age_update(cache_entry_type, CACHE_WAYS, hit_way, hit_index);\
 } while(0)
