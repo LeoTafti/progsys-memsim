@@ -247,7 +247,6 @@ int mem_init_from_description(const char* master_filename,
 	error_code err = ERR_NONE;
 
 	// PGD
-  // TODO 'lecture PGD filename -1'
 
 	if(fscanf(f, "%s", filename) != 1){
 		fclose(f); return ERR_IO;
@@ -261,7 +260,6 @@ int mem_init_from_description(const char* master_filename,
 	}
 
   // OTHER TRANSLATION PAGES
-  // TODO : ' lecture PUD: fails most of the tests, check memory error with valgrind', -3
 
 	int nb_pages;
 	if(fscanf(f, "%d", &nb_pages) != 1){
@@ -285,7 +283,6 @@ int mem_init_from_description(const char* master_filename,
   	}
 
   /*** WRITE DATA PAGES ***/
-  // TODO : 'lecture pages data' -2
 	while(fscanf(f, "%lx %s", &vaddr64, filename) == 2 && !feof(f)) {
 		if((err = virt_uint_64_to_phy_addr(*memory, vaddr64, &paddr)) != ERR_NONE) {
       		fclose(f);

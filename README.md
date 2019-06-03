@@ -8,3 +8,5 @@ Project by Léo Tafti & Paul Juillard
 Started March 2019
 
 See 'Description générale du projet principal' for a global insight.
+
+**Note : The README requested with the final submission is in the /done directory, as required**

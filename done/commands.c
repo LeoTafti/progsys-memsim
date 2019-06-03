@@ -50,7 +50,6 @@ int program_free(program_t* program){
 
 static int program_enlarge(program_t* program);
 int program_add_command(program_t* program, command_t const * command) {
-	// TODO -1 @ second grading
 	M_REQUIRE_NON_NULL(program);
 	M_REQUIRE_NON_NULL(command);
 
@@ -258,7 +257,7 @@ int program_read(const char* filename, program_t* program){
  * @param str_len the length of the string (char array)
  * @return the length of the string (command) read
  */
-static int read_command_line(FILE* input, char* str, size_t str_len){ // TODO -1 @ second grading
+static int read_command_line(FILE* input, char* str, size_t str_len){
 	fgets(str, str_len, input);
 
 	int len_read = strlen(str) - 1;

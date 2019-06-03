@@ -119,7 +119,6 @@ node_t* push_front(list_t* this, const list_content_t* value) {
 }
 
 void pop_back(list_t* this) {
-  // TODO: je comprends pas "correcteur Empty list test: front in not NULL"
   if(this != NULL && this->back != NULL) {
     node_t* rm = this->back;
 
@@ -129,7 +128,6 @@ void pop_back(list_t* this) {
 }
 
 void pop_front(list_t* this) {
-  // correcteur Empty list test: back in not NULL
   if(this != NULL && this->front != NULL) {
     node_t* rm = this->front;
 
@@ -139,11 +137,8 @@ void pop_front(list_t* this) {
 }
 
 void move_back(list_t* this, node_t* node) {
-  // would be more rigourous to check contains but -> correcteur so slow that we really don't care here
-  // too costly and can't signal error with this signature
   if(this != NULL && node != NULL) {
     if(this->back != node) { // nothing to be done if it is already at the back
-      // correcteur (warning) but then sometime if the element is not in the list, but if it is the last one it is not?
       if(this->front == node) this->front = node->next;
 
       cut(node);

@@ -31,6 +31,7 @@
 #define PHY_ADDR        32 // = PHY_PAGE_NUM + PAGE_OFFSET
 
 #define WORD_SEL_MASK 3 // = 0b11
+#define WORD_SEL_BITS 2
 
 #define BYTE_SEL_MASK 3 // = 0b11
 #define BYTE_SEL_BITS 2
