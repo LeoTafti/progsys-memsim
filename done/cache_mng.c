@@ -546,12 +546,15 @@ switch(l1_cache_type){
   case L1_ICACHE:
     l1_entry  = convert(l2_entry, L2_CACHE, L1_ICACHE, paddr_32b);
     M_REQUIRE_NON_NULL(l1_entry);
-    printf("converted to L1 to entry tag %x ? %d\n\n", l1_entry->tag, l1_entry->v);
+    printf("converted to L1 to entry tag %x ? %d\n\n",
+        ((l1_icache_entry_t*)l1_entry)->tag, ((l1_icache_entry_t*)l1_entry)->v);
     err = l1_insert(l1_cache, l1_entry, L1_ICACHE, l2_cache, paddr_32b, replace);
   break;
   case L1_DCACHE:
     l1_entry = convert(l2_entry, L2_CACHE, L1_DCACHE, paddr_32b);
     M_REQUIRE_NON_NULL(l1_entry);
+    printf("converted to L1 to entry tag %x ? %d\n\n",
+        ((l1_icache_entry_t*)l1_entry)->tag, ((l1_icache_entry_t*)l1_entry)->v);
     err = l1_insert(l1_cache, l1_entry, L1_DCACHE, l2_cache, paddr_32b, replace);
   break;
   default: M_EXIT(ERR_BAD_PARAMETER, "%s", "access type is ill defined");
